@@ -1,11 +1,11 @@
 package layout
 
 import (
-	"decorender/fonts"
-	"decorender/parsing"
-	"decorender/utils"
 	"errors"
 	"fmt"
+	"github.com/godknowsiamgood/decorender/fonts"
+	"github.com/godknowsiamgood/decorender/parsing"
+	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"

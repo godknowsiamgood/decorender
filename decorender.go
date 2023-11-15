@@ -1,12 +1,12 @@
 package decorender
 
 import (
-	"decorender/draw"
-	"decorender/fonts"
-	"decorender/layout"
-	"decorender/parsing"
-	"decorender/render"
 	"errors"
+	"github.com/godknowsiamgood/decorender/draw"
+	"github.com/godknowsiamgood/decorender/fonts"
+	"github.com/godknowsiamgood/decorender/layout"
+	"github.com/godknowsiamgood/decorender/parsing"
+	"github.com/godknowsiamgood/decorender/render"
 	"gopkg.in/yaml.v3"
 	"image"
 	"os"

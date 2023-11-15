@@ -1,9 +1,9 @@
 package draw
 
 import (
-	"decorender/fonts"
-	"decorender/utils"
 	"github.com/fogleman/gg"
+	"github.com/godknowsiamgood/decorender/fonts"
+	"github.com/godknowsiamgood/decorender/utils"
 	"image"
 	"image/color"
 	_ "image/jpeg"
@@ -68,7 +68,7 @@ func (d *DefaultDrawer) RetrieveImage() image.Image {
 	return d.gc.Image()
 }
 
-func (d *DefaultDrawer) DrawImage(w float64, h float64, img image.Image) {
+func (d *DefaultDrawer) DrawImage(img image.Image) {
 	d.gc.DrawImage(img, 0, 0)
 }
 

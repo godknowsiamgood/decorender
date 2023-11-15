@@ -1,8 +1,8 @@
 package render
 
 import (
-	draw2 "decorender/draw"
-	"decorender/utils"
+	draw2 "github.com/godknowsiamgood/decorender/draw"
+	"github.com/godknowsiamgood/decorender/utils"
 	"golang.org/x/image/draw"
 	"image"
 	"image/color"

@@ -1,11 +1,11 @@
 package layout
 
 import (
-	"decorender/draw"
-	"decorender/fonts"
-	"decorender/parsing"
-	"decorender/resources"
-	"decorender/utils"
+	"github.com/godknowsiamgood/decorender/draw"
+	"github.com/godknowsiamgood/decorender/fonts"
+	"github.com/godknowsiamgood/decorender/parsing"
+	"github.com/godknowsiamgood/decorender/resources"
+	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"
@@ -130,7 +130,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 					rows[currentRowIndex] = append(rows[currentRowIndex], &childNodes[icn])
 				}
 			} else {
-				for icn, _ := range childNodes {
+				for icn := range childNodes {
 					rows[0] = append(rows[0], &childNodes[icn])
 				}
 			}

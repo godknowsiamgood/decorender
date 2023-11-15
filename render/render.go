@@ -2,9 +2,9 @@ package render
 
 import (
 	"bytes"
-	"decorender/draw"
-	"decorender/layout"
-	"decorender/resources"
+	"github.com/godknowsiamgood/decorender/draw"
+	"github.com/godknowsiamgood/decorender/layout"
+	"github.com/godknowsiamgood/decorender/resources"
 	"image"
 	"math"
 )
@@ -40,7 +40,7 @@ func Do(n layout.Node, drawer draw.Drawer) {
 				srcImg = applyBorderRadius(srcImg, n.Props.BorderRadius)
 			}
 			if err == nil {
-				drawer.DrawImage(n.Size.W, n.Size.H, srcImg)
+				drawer.DrawImage(srcImg)
 			}
 		}
 	}

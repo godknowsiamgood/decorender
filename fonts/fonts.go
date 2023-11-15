@@ -1,7 +1,7 @@
 package fonts
 
 import (
-	"decorender/parsing"
+	"github.com/godknowsiamgood/decorender/parsing"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"math"

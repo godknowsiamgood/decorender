@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"decorender/utils"
+	"github.com/godknowsiamgood/decorender/utils"
 	"io"
 	"net/http"
 	"os"
@@ -63,7 +63,9 @@ func PrefetchResource(fileName string) {
 		if err != nil {
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		bytes, err := io.ReadAll(resp.Body)
 		if err != nil {

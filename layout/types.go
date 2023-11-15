@@ -1,8 +1,8 @@
 package layout
 
 import (
-	"decorender/fonts"
-	"decorender/utils"
+	"github.com/godknowsiamgood/decorender/fonts"
+	"github.com/godknowsiamgood/decorender/utils"
 	"image/color"
 )
 
