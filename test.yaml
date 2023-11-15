@@ -1,0 +1,150 @@
+size: 1000 1000
+bkgColor: black
+color: white
+font: Roboto 20
+innerGap: 10
+innerDirection: row
+padding: 10
+fontFaces:
+  - family: Roboto
+    file: ./Roboto-Regular.ttf
+inner:
+  - inner:
+    - text: Simple rectangle
+      width: 100
+    - size: 100 100
+      bkgColor: coral
+
+  - inner:
+    - text: Rectangle with border radius
+      width: 100
+    - size: 100 100
+      borderRadius: 10 20 10 30
+      bkgColor: coral
+
+  - inner:
+      - text: Autosize rectangle
+        width: 100
+      - bkgColor: coral
+        padding: 10
+        inner:
+          - size: 80 100
+            bkgColor: white
+
+  - inner:
+      - text: Gaps vertical
+        width: 80
+      - bkgColor: coral
+        padding: 10
+        innerGap: 10
+        inner:
+          - size: 20 20
+            bkgColor: red
+          - size: 20 20
+            bkgColor: green
+          - size: 20 20
+            bkgColor: blue
+
+  - inner:
+    - text: Gaps horizontal
+      width: 100
+    - bkgColor: coral
+      padding: 10
+      innerGap: 10
+      innerDirection: row
+      inner:
+        - size: 20 20
+          bkgColor: red
+        - size: 20 20
+          bkgColor: green
+        - size: 20 20
+          bkgColor: blue
+
+  - inner:
+      - text: Gaps horizontal and verical
+        width: 100
+      - bkgColor: coral
+        padding: 10
+        innerGap: 10
+        innerDirection: row
+        width: 100
+        inner:
+          - size: 20 20
+            bkgColor: red
+          - size: 20 20
+            bkgColor: green
+          - size: 20 20
+            bkgColor: blue
+          - size: 20 20
+            bkgColor: yellow
+          - size: 20 20
+            bkgColor: white
+
+
+  - inner:
+      - text: Simple text
+        width: 100
+      - bkgColor: coral
+        padding: 10
+        font: Roboto 20
+        text: Hello World
+
+
+  - inner:
+      - text: Text with wrapping
+        width: 100
+      - bkgColor: coral
+        width: 100
+        font: Roboto 15
+        text: Text with word wrap
+
+  - inner:
+      - text: Absolute positioning
+        width: 100
+      - bkgColor: coral
+        size: 200 100
+        inner:
+          - size: 20 20
+            bkgColor: red
+            absolute: left
+          - size: 20 20
+            bkgColor: green
+            absolute: top
+          - size: 20 20
+            bkgColor: blue
+            absolute: right
+          - size: 20 20
+            bkgColor: white
+            absolute: bottom
+          - size: 20 20
+            bkgColor: yellow
+            absolute: top left
+          - size: 20 20
+            bkgColor: pink
+            absolute: top right
+          - size: 20 20
+            bkgColor: cyan
+            absolute: bottom right
+          - size: 20 20
+            bkgColor: magenta
+            absolute: bottom left
+
+
+  - inner:
+      - text: Absolute positioning 2
+        width: 150
+      - bkgColor: coral
+        size: 200 100
+        inner:
+          - size: 20 20
+            bkgColor: red
+            absolute: left right
+          - size: 20 20
+            bkgColor: green
+            absolute: top bottom
+          - size: 20 20
+            bkgColor: yellow
+            absolute: top right bottom
+          - size: 20 20
+            bkgColor: blue
+            absolute: top left bottom

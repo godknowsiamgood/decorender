@@ -1,0 +1,5 @@
+*.iml
+modules.xml
+vcs.xml
+.idea/
+.DS_Store
