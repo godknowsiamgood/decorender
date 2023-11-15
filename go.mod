@@ -1,4 +1,4 @@
-module decorender
+module github.com/godknowsiamgood/decorender
 
 go 1.21
 
