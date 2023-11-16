@@ -24,7 +24,7 @@ const (
 
 func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, parentData any) CalculatedProperties {
 	padding, _ := parseNValues(n.Padding, 4, context.size.W, context.size.H, data, parentData, false, false)
-	lineHeight, _ := parseNValues(n.LineHeight, 1, context.size.W, context.size.H, data, parentData, true, false)
+	lineHeight, _ := parseNValues(n.LineHeight, 1, context.size.W, context.size.H, data, parentData, false, false)
 	borderRadius, _ := parseNValues(n.BorderRadius, 4, context.size.W, context.size.H, data, parentData, false, false)
 
 	sz, szErr := parseNValues(n.Size, 2, context.size.W, context.size.H, data, parentData, false, false)

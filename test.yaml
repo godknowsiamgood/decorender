@@ -1,7 +1,7 @@
 size: 1000 1000
 bkgColor: black
 color: white
-font: Roboto 20
+font: Roboto 14
 innerGap: 10
 innerDirection: row
 padding: 10
@@ -231,4 +231,18 @@ inner:
         inner:
           - forEach: StringsSlice
             bkgColor: blue
-            text: '{{{ $len := len . }}}{{{ divide 100 $len }}}'
+            text: '{{{ $len := len . }}}{{{ div 100 $len }}}'
+
+  - inner:
+      - text: Justify vertical and size test
+        width: 150
+      - bkgColor: salmon
+        size: 150 100
+        padding: 20
+        inner:
+          - justify: center
+            size: 100% 100%
+            bkgColor: white
+            inner:
+              - size: 20 30
+                bkgColor: blue
