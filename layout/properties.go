@@ -28,8 +28,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any) C
 	borderRadius, _ := parseNValues(n.BorderRadius, 4, context.size.W, context.size.H, data, false, false)
 
 	sz, szErr := parseNValues(n.Size, 2, context.size.W, context.size.H, data, false, false)
-	width, widthErr := parseNValues(n.Width, 1, context.size.W, context.size.H, data, false, false)
-	height, heightErr := parseNValues(n.Height, 1, context.size.W, context.size.H, data, true, false)
+	width, widthErr := parseNValues(n.Width, 1, context.size.W, context.size.H, data, true, false)
+	height, heightErr := parseNValues(n.Height, 1, context.size.W, context.size.H, data, false, false)
 	if szErr != nil {
 		sz[0], sz[1] = -1, -1
 	}
@@ -41,11 +41,11 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any) C
 	}
 
 	anchors := parseAbsoluteAnchor(n.Absolute, data)
-	if anchors[0] && anchors[2] {
-		sz[1] = context.size.H
+	if anchors.HasTop() && anchors.HasBottom() {
+		sz[1] = context.size.H - anchors.Top() - anchors.Bottom()
 	}
-	if anchors[1] && anchors[3] {
-		sz[0] = context.size.W
+	if anchors.HasLeft() && anchors.HasRight() {
+		sz[0] = context.size.W - anchors.Left() - anchors.Right()
 	}
 
 	backgroundColor := color.RGBA{A: 0}
@@ -118,15 +118,26 @@ func parseAbsoluteAnchor(value string, data any) (result utils.Anchors) {
 	value = utils.ReplaceWithValues(value, data)
 	tokens := strings.Fields(value)
 	for _, token := range tokens {
-		switch token {
+		tokenParts := strings.Split(token, "/")
+
+		var direction string
+		var offset float64
+		if len(tokenParts) > 0 {
+			direction = tokenParts[0]
+		}
+		if len(tokenParts) > 1 {
+			offset, _ = strconv.ParseFloat(tokenParts[1], 64)
+		}
+
+		switch direction {
 		case "top":
-			result[0] = true
+			result[0] = utils.Anchor{Has: true, Offset: offset}
 		case "right":
-			result[1] = true
+			result[1] = utils.Anchor{Has: true, Offset: offset}
 		case "bottom":
-			result[2] = true
+			result[2] = utils.Anchor{Has: true, Offset: offset}
 		case "left":
-			result[3] = true
+			result[3] = utils.Anchor{Has: true, Offset: offset}
 		}
 	}
 	return result
@@ -210,7 +221,7 @@ func parseNValues(str string, max int, parentWidth float64, parentHeight float64
 	return result, nil
 }
 
-var hexRegex = regexp.MustCompile(`^#([a-fA-F0-9]{6})([a-fA-F0-9]{2})?$`)
+var hexRegex = regexp.MustCompile(`^0x([a-fA-F0-9]{6})([a-fA-F0-9]{2})?$`)
 var rgbRegex = regexp.MustCompile(`^rgb(a)?\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})(,\s*(0|1|0?\.\d+))?\)$`)
 
 func parseColor(c string) (color.RGBA, error) {

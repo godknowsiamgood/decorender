@@ -27,22 +27,39 @@ func (fv FourValues) Height() float64 {
 	return fv[1]
 }
 
-type Anchors [4]bool
+type Anchor struct {
+	Has    bool
+	Offset float64
+}
+type Anchors [4]Anchor
 
 func (a Anchors) Has() bool {
-	return a[0] || a[1] || a[2] || a[3]
+	return a[0].Has || a[1].Has || a[2].Has || a[3].Has
 }
-func (a Anchors) Left() bool {
-	return a[3]
+func (a Anchors) Left() float64 {
+	return a[3].Offset
 }
-func (a Anchors) Top() bool {
-	return a[0]
+func (a Anchors) Top() float64 {
+	return a[0].Offset
 }
-func (a Anchors) Right() bool {
-	return a[1]
+func (a Anchors) Right() float64 {
+	return a[1].Offset
 }
-func (a Anchors) Bottom() bool {
-	return a[2]
+func (a Anchors) Bottom() float64 {
+	return a[2].Offset
+}
+
+func (a Anchors) HasTop() bool {
+	return a[0].Has
+}
+func (a Anchors) HasLeft() bool {
+	return a[3].Has
+}
+func (a Anchors) HasRight() bool {
+	return a[1].Has
+}
+func (a Anchors) HasBottom() bool {
+	return a[2].Has
 }
 
 func GetSha256(str string) string {

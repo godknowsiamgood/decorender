@@ -1,6 +1,7 @@
 package fonts
 
 import (
+	_ "embed"
 	"github.com/godknowsiamgood/decorender/parsing"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -10,6 +11,9 @@ import (
 	"strconv"
 	"sync"
 )
+
+//go:embed default.ttf
+var defaultFontFile []byte
 
 type FaceDescription struct {
 	Family string
@@ -61,6 +65,14 @@ func GetFontFace(fd FaceDescription) font.Face {
 	return face
 }
 
+func GetFontFaceBaseLineOffset(face font.Face, lineHeight float64) float64 {
+	metrics := face.Metrics()
+	ascent := float64(metrics.Ascent.Ceil())
+	descent := float64(metrics.Descent.Ceil())
+	baselineOffset := (lineHeight - (ascent + descent)) / 2
+	return ascent + baselineOffset
+}
+
 func LoadFaces(faceTemplates []parsing.FontFace) error {
 	facesMx.Lock()
 	defer facesMx.Unlock()
@@ -73,17 +85,16 @@ func LoadFaces(faceTemplates []parsing.FontFace) error {
 		Family: "default",
 		Style:  "normal",
 		Weight: "400",
-		File:   "./Roboto-Regular.ttf",
-	})
+	}, defaultFontFile)
 
 	for _, ft := range faceTemplates {
-		loadFont(ft)
+		loadFont(ft, nil)
 	}
 
 	return nil
 }
 
-func loadFont(faceTemplate parsing.FontFace) {
+func loadFont(faceTemplate parsing.FontFace, content []byte) {
 	cff := cachedFontFace{}
 	if faceTemplate.Style != "" {
 		switch faceTemplate.Style {
@@ -116,12 +127,15 @@ func loadFont(faceTemplate parsing.FontFace) {
 	if slices.IndexFunc(faces, func(f cachedFontFace) bool {
 		return f.family == cff.family && f.style == cff.style && f.weight == cff.weight
 	}) == -1 {
-		data, err := os.ReadFile(faceTemplate.File)
-		if err != nil {
-			return
+		if content == nil {
+			var err error
+			content, err = os.ReadFile(faceTemplate.File)
+			if err != nil {
+				return
+			}
 		}
 
-		fnt, err := opentype.Parse(data)
+		fnt, err := opentype.Parse(content)
 		if err != nil {
 			return
 		}

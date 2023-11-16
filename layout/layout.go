@@ -79,9 +79,6 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 			newContext.isRoot = false
 		}
 
-		newContext.size.W -= ln.Props.Padding[1] + ln.Props.Padding[3]
-		newContext.size.H -= ln.Props.Padding[0] + ln.Props.Padding[2]
-
 		// retrieve child nodes
 
 		var childNodes []Node
@@ -89,6 +86,9 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 
 		if n.Image != "" {
 			ln.Image = utils.ReplaceWithValues(n.Image, value)
+			if needSetNodeSize {
+				ln.Size = context.size
+			}
 		}
 
 		var isText bool
@@ -97,6 +97,9 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 			text = utils.ReplaceWithValues(n.Text, value)
 			isText = text != ""
 		}
+
+		newContext.size.W -= ln.Props.Padding[1] + ln.Props.Padding[3]
+		newContext.size.H -= ln.Props.Padding[0] + ln.Props.Padding[2]
 
 		if isText {
 			childNodes, whiteSpaceNode = spitTextToNodes(text, newContext)
@@ -158,20 +161,23 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 							}
 						}
 						ln.Size.W = maxWidth
+
+						// in columns, there are only one row, so add paddings to size right now
+						ln.Size.W += ln.Props.Padding[1] + ln.Props.Padding[3]
 					}
 				}
 
 				if isDirectionRow {
 					ln.Size.H += ln.Props.InnerGap * float64(len(rows)-1)
+					ln.Size.H += ln.Props.Padding[0] + ln.Props.Padding[2]
 					if ln.Size.W == 0 {
 						ln.Size.W = s
+						ln.Size.W += ln.Props.Padding[1] + ln.Props.Padding[3]
 					}
 				} else {
 					ln.Size.H = s
+					ln.Size.H += ln.Props.Padding[0] + ln.Props.Padding[2]
 				}
-
-				ln.Size.W += ln.Props.Padding[1] + ln.Props.Padding[3]
-				ln.Size.H += ln.Props.Padding[0] + ln.Props.Padding[2]
 			}
 
 			// process Justify

@@ -21,6 +21,11 @@ func (d *DefaultDrawer) InitImage(width int, height int) {
 func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, radius utils.FourValues) {
 	d.gc.SetColor(c)
 
+	radius[0] = min(radius[0], h/2, w/2)
+	radius[1] = min(radius[1], h/2, w/2)
+	radius[2] = min(radius[2], h/2, w/2)
+	radius[3] = min(radius[3], h/2, w/2)
+
 	// Top-left corner
 	if radius[0] > 0 {
 		d.gc.DrawArc(0+radius[0], 0+radius[0], radius[0], -math.Pi, -math.Pi/2)

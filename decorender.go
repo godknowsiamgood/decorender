@@ -2,6 +2,7 @@ package decorender
 
 import (
 	"errors"
+	"fmt"
 	"github.com/godknowsiamgood/decorender/draw"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
@@ -9,7 +10,11 @@ import (
 	"github.com/godknowsiamgood/decorender/render"
 	"gopkg.in/yaml.v3"
 	"image"
+	"image/jpeg"
+	"image/png"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 var NothingToRenderErr = errors.New("nothing to render")
@@ -61,4 +66,26 @@ func (r *Renderer) Render(userData any) (image.Image, error) {
 	render.Do(nodes[0], r.drawer)
 
 	return r.drawer.RetrieveImage(), nil
+}
+
+func (r *Renderer) RenderToFile(userData any, fileName string) error {
+	img, err := r.Render(userData)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = file.Close() }()
+
+	switch strings.ToLower(filepath.Ext(fileName)) {
+	case ".jpg", ".jpeg":
+		return jpeg.Encode(file, img, &jpeg.Options{Quality: 95})
+	case ".png":
+		return png.Encode(file, img)
+	default:
+		return fmt.Errorf("unsupported file format")
+	}
 }

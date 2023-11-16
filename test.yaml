@@ -80,15 +80,13 @@ inner:
           - size: 20 20
             bkgColor: white
 
-
   - inner:
-      - text: Simple text
+      - text: Simple text with line height
         width: 100
       - bkgColor: coral
-        padding: 10
         font: Roboto 20
-        text: Hello World
-
+        lineHeight: 20
+        text: AaBbCcDdJjQq
 
   - inner:
       - text: Text with wrapping
@@ -148,3 +146,44 @@ inner:
           - size: 20 20
             bkgColor: blue
             absolute: top left bottom
+
+  - inner:
+      - text: Absolute positioning with offsets
+        width: 150
+      - bkgColor: coral
+        size: 200 100
+        inner:
+          - size: 20 20
+            bkgColor: red
+            absolute: right/-10
+          - size: 10 10
+            bkgColor: blue
+            absolute: left right/-10
+          - size: 10 10
+            bkgColor: green
+            absolute: left/10 top/10
+          - size: 10 10
+            bkgColor: yellow
+            absolute: right/20 top/10
+
+  - inner:
+      - text: Image
+        width: 150
+      - bkgColor: coral
+        size: 200 100
+        padding: 10
+        inner:
+          - image: ./test_img.jpeg
+
+  - inner:
+      - text: Padding and width 100%
+        width: 150
+      - bkgColor: coral
+        size: 150 40
+        inner:
+          - width: 100%
+            padding: 10 5 10 5
+            bkgColor: white
+            inner:
+              - size: 10 10
+                bkgColor: red
