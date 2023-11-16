@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"image/color"
 )
 
 type Size struct {
@@ -60,6 +61,20 @@ func (a Anchors) HasRight() bool {
 }
 func (a Anchors) HasBottom() bool {
 	return a[2].Has
+}
+
+type BorderType int
+
+const (
+	BorderTypeCenter BorderType = iota
+	BorderTypeOutset
+	BorderTypeInset
+)
+
+type Border struct {
+	Type  BorderType
+	Width float64
+	Color color.RGBA
 }
 
 func GetSha256(str string) string {

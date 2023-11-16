@@ -22,6 +22,8 @@ type CalculatedProperties struct {
 	Anchors                utils.Anchors
 	InnerGap               float64
 	Rotation               float64
+	BkgImageSize           string
+	Border                 utils.Border
 }
 
 type Node struct {

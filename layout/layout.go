@@ -40,6 +40,11 @@ func Do(n parsing.Node, userData any, drawer draw.Drawer) []Node {
 		return nil
 	}
 
+	scale := n.GetScale()
+	if scale != 1.0 {
+		utils.ScaleAllValues(&nodes[0], scale)
+	}
+
 	prefetchResources(&nodes[0])
 
 	return nodes
@@ -74,7 +79,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 			if ln.Size.W == 0 || ln.Size.H == 0 {
 				return
 			} else {
-				context.drawer.InitImage(int(ln.Size.W), int(ln.Size.H))
+				context.drawer.InitImage(int(ln.Size.W*n.GetScale()), int(ln.Size.H*n.GetScale()))
 			}
 			newContext.isRoot = false
 		}

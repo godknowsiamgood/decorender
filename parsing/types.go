@@ -1,5 +1,7 @@
 package parsing
 
+import "strconv"
+
 type Node struct {
 	Id                  string     `yaml:"id"`
 	Size                string     `yaml:"size"`
@@ -27,9 +29,20 @@ type Node struct {
 	InnerGap            string     `yaml:"innerGap"`
 	Rotation            string     `yaml:"rotate"`
 	DebugOnly           string     `yaml:"only"`
+	BkgImageSize        string     `yaml:"bkgImageSize"`
+	Border              string     `yaml:"border"`
+	Scale               string     `yaml:"scale"`
 
 	ForEach string `yaml:"forEach"`
 	Inner   []Node `yaml:"inner"`
+}
+
+func (n *Node) GetScale() float64 {
+	scale, err := strconv.ParseFloat(n.Scale, 64)
+	if err != nil || scale < 0.001 {
+		scale = 1.0
+	}
+	return scale
 }
 
 type FontFace struct {

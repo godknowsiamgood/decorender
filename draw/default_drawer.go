@@ -18,7 +18,7 @@ func (d *DefaultDrawer) InitImage(width int, height int) {
 	d.gc = gg.NewContext(width, height)
 }
 
-func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, radius utils.FourValues) {
+func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, border utils.Border, radius utils.FourValues) {
 	d.gc.SetColor(c)
 
 	radius[0] = min(radius[0], h/2, w/2)
@@ -26,35 +26,71 @@ func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, radius uti
 	radius[2] = min(radius[2], h/2, w/2)
 	radius[3] = min(radius[3], h/2, w/2)
 
+	// Draw the rectangle
+	d.drawRoundedRect(0, 0, w, h, radius)
+	d.gc.Fill()
+
+	// Draw the border if it's defined
+	if border.Width > 0 {
+		d.gc.SetLineWidth(border.Width)
+		d.gc.SetColor(border.Color)
+
+		switch border.Type {
+		case utils.BorderTypeOutset:
+			d.drawRoundedRect(-border.Width/2, -border.Width/2, w+border.Width, h+border.Width, increaseRadius(radius, border.Width/2))
+		case utils.BorderTypeInset:
+			d.drawRoundedRect(border.Width/2, border.Width/2, w-border.Width, h-border.Width, increaseRadius(radius, -border.Width/2))
+		case utils.BorderTypeCenter:
+			d.drawRoundedRect(0, 0, w, h, radius)
+		}
+		d.gc.Stroke()
+	}
+}
+func (d *DefaultDrawer) drawRoundedRect(x, y, w, h float64, radius utils.FourValues) {
+	// Adjust radii to fit the rectangle
+	radius[0] = min(radius[0], h/2, w/2)
+	radius[1] = min(radius[1], h/2, w/2)
+	radius[2] = min(radius[2], h/2, w/2)
+	radius[3] = min(radius[3], h/2, w/2)
+
 	// Top-left corner
 	if radius[0] > 0 {
-		d.gc.DrawArc(0+radius[0], 0+radius[0], radius[0], -math.Pi, -math.Pi/2)
+		d.gc.DrawArc(x+radius[0], y+radius[0], radius[0], -math.Pi, -math.Pi/2)
 	} else {
-		d.gc.MoveTo(0, 0)
+		d.gc.MoveTo(x, y)
 	}
 
 	// Top-right corner
 	if radius[1] > 0 {
-		d.gc.DrawArc(w-radius[1], 0+radius[1], radius[1], -math.Pi/2, 0)
+		d.gc.DrawArc(x+w-radius[1], y+radius[1], radius[1], -math.Pi/2, 0)
 	} else {
-		d.gc.LineTo(w, 0)
+		d.gc.LineTo(x+w, y)
 	}
 
 	// Bottom-right corner
 	if radius[2] > 0 {
-		d.gc.DrawArc(w-radius[2], h-radius[2], radius[2], 0, math.Pi/2)
+		d.gc.DrawArc(x+w-radius[2], y+h-radius[2], radius[2], 0, math.Pi/2)
 	} else {
-		d.gc.LineTo(w, h)
+		d.gc.LineTo(x+w, y+h)
 	}
 
 	// Bottom-left corner
 	if radius[3] > 0 {
-		d.gc.DrawArc(0+radius[3], h-radius[3], radius[3], math.Pi/2, math.Pi)
+		d.gc.DrawArc(x+radius[3], y+h-radius[3], radius[3], math.Pi/2, math.Pi)
 	} else {
-		d.gc.LineTo(0, h)
+		d.gc.LineTo(x, y+h)
 	}
 
-	d.gc.Fill()
+	d.gc.ClosePath()
+}
+
+func increaseRadius(r utils.FourValues, delta float64) utils.FourValues {
+	for i := range r {
+		if r[i] > 0 {
+			r[i] = max(0, r[i]+delta)
+		}
+	}
+	return r
 }
 
 func (d *DefaultDrawer) DrawText(text string, fd fonts.FaceDescription, fontColor color.Color) {

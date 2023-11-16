@@ -53,6 +53,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any) C
 		backgroundColor, _ = parseColor(utils.ReplaceWithValues(n.BkgColor, data))
 	}
 
+	bkgImageSize := validateStringValue(n.BkgImageSize, []string{"cover", "contain"})
+
 	fontColor := context.props.FontColor // inherited
 	if n.FontColor != "" {
 		fontColor, _ = parseColor(utils.ReplaceWithValues(n.FontColor, data))
@@ -91,6 +93,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any) C
 
 	rotation, _ := parseNValues(n.Rotation, 1, context.size.W, context.size.H, data, true, true)
 
+	border := parseBorderProperty(utils.ReplaceWithValues(n.Border, data))
+
 	if n.Text != "" {
 		childrenDirection = "row"
 	}
@@ -111,6 +115,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any) C
 		Anchors:                anchors,
 		InnerGap:               innerGap[0],
 		Rotation:               rotation[0],
+		BkgImageSize:           bkgImageSize,
+		Border:                 border,
 	}
 }
 
@@ -141,6 +147,33 @@ func parseAbsoluteAnchor(value string, data any) (result utils.Anchors) {
 		}
 	}
 	return result
+}
+
+func parseBorderProperty(value string) (res utils.Border) {
+	tokens := strings.Fields(value)
+	for _, t := range tokens {
+		width, err := strconv.ParseFloat(t, 64)
+		if err == nil {
+			res.Width = width
+			continue
+		}
+
+		c, err := parseColor(t)
+		if err == nil {
+			res.Color = c
+			continue
+		}
+
+		switch t {
+		case "inset":
+			res.Type = utils.BorderTypeInset
+		case "outset":
+			res.Type = utils.BorderTypeOutset
+		case "center":
+			res.Type = utils.BorderTypeCenter
+		}
+	}
+	return res
 }
 
 func prepareParsedValue(value float64, isVertical bool, unit int, parentWidth float64, parentHeight float64) float64 {

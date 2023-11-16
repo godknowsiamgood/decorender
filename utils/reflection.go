@@ -61,3 +61,27 @@ func RunForEach(inputStruct interface{}, arrayFieldName string, cb func(value in
 		fmt.Println("The specified field is not a slice or does not exist")
 	}
 }
+
+func ScaleAllValues(data any, scale float64) {
+	scaleValue(reflect.ValueOf(data), scale)
+}
+
+func scaleValue(v reflect.Value, scale float64) {
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Interface:
+		scaleValue(v.Elem(), scale)
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			scaleValue(v.Field(i), scale)
+		}
+	case reflect.Array, reflect.Slice:
+		for i := 0; i < v.Len(); i++ {
+			scaleValue(v.Index(i), scale)
+		}
+	case reflect.Float64:
+		if v.CanSet() {
+			v.SetFloat(v.Float() * scale)
+		}
+	default:
+	}
+}

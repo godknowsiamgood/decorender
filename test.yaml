@@ -101,6 +101,7 @@ inner:
         width: 100
       - bkgColor: coral
         size: 200 100
+        padding: 10
         inner:
           - size: 20 20
             bkgColor: red
@@ -167,10 +168,10 @@ inner:
             absolute: right/20 top/10
 
   - inner:
-      - text: Image
+      - text: Cover image
         width: 150
       - bkgColor: coral
-        size: 200 100
+        size: 150 100
         padding: 10
         inner:
           - image: ./test_img.jpeg
@@ -187,3 +188,33 @@ inner:
             inner:
               - size: 10 10
                 bkgColor: red
+
+  - inner:
+      - text: Image containing
+        width: 120
+      - size: 120 120
+        inner:
+          - image: ./test_img.jpeg
+            bkgImageSize: contain
+            bkgColor: salmon
+
+  - inner:
+      - text: Borders
+        width: 120
+      - bkgColor: salmon
+        padding: 5
+        innerDirection: row
+        innerGap: 8
+        inner:
+          - size: 30 30
+            bkgColor: yellow
+            borderRadius: 5
+            border: inset 3 0x00000055
+          - size: 30 30
+            bkgColor: yellow
+            borderRadius: 5
+            border: outset 3 0x00000055
+          - size: 30 30
+            bkgColor: yellow
+            borderRadius: 5
+            border: center 3 0x00000055
