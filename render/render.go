@@ -14,6 +14,8 @@ func Do(n layout.Node, drawer draw.Drawer) {
 	drawer.SaveState()
 
 	topPadding := n.Props.Padding[0]
+	rightPadding := n.Props.Padding[1]
+	bottomPadding := n.Props.Padding[2]
 	leftPadding := n.Props.Padding[3]
 
 	if math.Abs(n.Props.Rotation) > 0.001 {
@@ -59,28 +61,24 @@ func Do(n layout.Node, drawer draw.Drawer) {
 		if cn.HasAnchors() {
 			if cn.Props.Anchors.HasLeft() || cn.Props.Anchors.HasRight() {
 				if !cn.Props.Anchors.HasTop() && !cn.Props.Anchors.HasBottom() {
-					absTop = n.Size.H/2 - cn.Size.H/2
+					absTop = (n.Size.H-topPadding-bottomPadding)/2 - cn.Size.H/2
 				}
 				if cn.Props.Anchors.HasRight() {
-					absLeft = n.Size.W - cn.Size.W - cn.Props.Anchors.Right()
+					absLeft = n.Size.W - leftPadding - rightPadding - cn.Size.W - cn.Props.Anchors.Right()
 				} else {
 					absLeft = cn.Props.Anchors.Left()
 				}
 			}
 			if cn.Props.Anchors.HasTop() || cn.Props.Anchors.HasBottom() {
 				if !cn.Props.Anchors.HasLeft() && !cn.Props.Anchors.HasRight() {
-					absLeft = n.Size.W/2 - cn.Size.W/2
+					absLeft = (n.Size.W-leftPadding-rightPadding)/2 - cn.Size.W/2
 				}
 				if cn.Props.Anchors.HasBottom() {
-					absTop = n.Size.H - cn.Size.H - cn.Props.Anchors.Bottom()
+					absTop = n.Size.H - topPadding - bottomPadding - cn.Size.H - cn.Props.Anchors.Bottom()
 				} else {
 					absTop = cn.Props.Anchors.Top()
 				}
 			}
-
-			// absolute positioned should not respect parent padding
-			absTop -= topPadding
-			absLeft -= leftPadding
 		}
 
 		drawer.SetTranslation(absLeft, absTop)

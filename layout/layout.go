@@ -34,7 +34,7 @@ func Do(n parsing.Node, userData any, drawer draw.Drawer) []Node {
 		},
 		isRoot: true,
 		drawer: drawer,
-	}, userData)
+	}, userData, nil)
 
 	if len(nodes) == 0 {
 		return nil
@@ -50,15 +50,19 @@ func Do(n parsing.Node, userData any, drawer draw.Drawer) []Node {
 	return nodes
 }
 
-func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []Node {
+func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentValue any) []Node {
 	var layoutNodes []Node
 
-	utils.RunForEach(userData, n.ForEach, func(value interface{}) {
+	utils.RunForEach(value, utils.ReplaceWithValues(n.ForEach, value, parentValue), func(currentValue any, iteratorValue any) {
+		if iteratorValue == nil {
+			iteratorValue = parentValue
+		}
+
 		newContext := context
 
 		var ln Node
 
-		ln.Props = calculateProperties(n, context, value)
+		ln.Props = calculateProperties(n, context, currentValue, iteratorValue)
 		newContext.props = ln.Props
 
 		needSetNodeSize := false
@@ -90,7 +94,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 		var whiteSpaceNode Node
 
 		if n.Image != "" {
-			ln.Image = utils.ReplaceWithValues(n.Image, value)
+			ln.Image = utils.ReplaceWithValues(n.Image, currentValue, iteratorValue)
 			if needSetNodeSize {
 				ln.Size = context.size
 			}
@@ -99,7 +103,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 		var isText bool
 		var text string
 		if n.Text != "" {
-			text = utils.ReplaceWithValues(n.Text, value)
+			text = utils.ReplaceWithValues(n.Text, currentValue, iteratorValue)
 			isText = text != ""
 		}
 
@@ -110,7 +114,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, userData any) []No
 			childNodes, whiteSpaceNode = spitTextToNodes(text, newContext)
 		} else {
 			for _, nc := range n.Inner {
-				childNodes = append(childNodes, doLayoutNode(nc, newContext, value)...)
+				childNodes = append(childNodes, doLayoutNode(nc, newContext, currentValue, iteratorValue)...)
 			}
 		}
 

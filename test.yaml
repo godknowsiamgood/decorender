@@ -218,3 +218,17 @@ inner:
             bkgColor: yellow
             borderRadius: 5
             border: center 3 0x00000055
+
+  - inner:
+      - text: For each
+        width: 120
+      - bkgColor: salmon
+        innerDirection: row
+        size: 100 100
+        innerGap: 2
+        padding: 5
+        font: 20
+        inner:
+          - forEach: StringsSlice
+            bkgColor: blue
+            text: '{{{ $len := len . }}}{{{ divide 100 $len }}}'

@@ -4,16 +4,42 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 )
 
-func ReplaceWithValues(str string, value interface{}) string {
+func ReplaceWithValues(str string, value any, parentValue any) string {
+	result := replaceWithValues(str, value)
+	result = strings.ReplaceAll(result, "{{{", "{{")
+	result = strings.ReplaceAll(result, "}}}", "}}")
+	return replaceWithValues(result, parentValue)
+}
+
+func replaceWithValues(str string, value any) string {
 	if !strings.Contains(str, "{{") {
 		return str
 	}
 
-	tmpl, err := template.New("template").Parse(str)
+	fm := template.FuncMap{
+		"divide": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
+		"multiply": func(a, b float64) float64 {
+			return a * b
+		},
+		"add": func(a, b float64) float64 {
+			return a + b
+		},
+		"sub": func(a, b float64) float64 {
+			return a - b
+		},
+	}
+
+	tmpl, err := template.New("template").Funcs(fm).Parse(str)
 	if err != nil {
 		return str
 	}
@@ -27,35 +53,35 @@ func ReplaceWithValues(str string, value interface{}) string {
 	return buf.String()
 }
 
-func RunForEach(inputStruct interface{}, arrayFieldName string, cb func(value interface{})) {
+func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, iteratorValue any)) {
 	if arrayFieldName == "" {
-		cb(inputStruct)
+		cb(parentValue, nil)
 		return
 	}
 
-	// Use reflection to inspect the type of the inputStruct
-	val := reflect.ValueOf(inputStruct)
+	if num, err := strconv.Atoi(arrayFieldName); err == nil {
+		for i := 0; i < num; i++ {
+			cb(i, parentValue)
+		}
+		return
+	}
 
-	// If the inputStruct is a pointer, we need to dereference it to get the value it points to
+	val := reflect.ValueOf(parentValue)
+
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
 
-	// Ensure that we're dealing with a struct
 	if val.Kind() != reflect.Struct {
 		fmt.Println("The provided interface is not a struct")
 		return
 	}
 
-	// Get the field by name
 	fieldVal := val.FieldByName(arrayFieldName)
 
-	// Check if the field exists and is a slice
 	if fieldVal.IsValid() && fieldVal.Kind() == reflect.Slice {
-		// Iterate over the slice
 		for i := 0; i < fieldVal.Len(); i++ {
-			// Call the callback with each element in the slice
-			cb(fieldVal.Index(i).Interface())
+			cb(fieldVal.Index(i).Interface(), fieldVal.Interface())
 		}
 	} else {
 		fmt.Println("The specified field is not a slice or does not exist")

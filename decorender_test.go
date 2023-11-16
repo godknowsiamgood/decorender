@@ -1,8 +1,6 @@
 package decorender
 
 import (
-	"image/png"
-	"os"
 	"testing"
 )
 
@@ -12,12 +10,14 @@ func TestFull(t *testing.T) {
 		t.Errorf("unexpected error while yaml parse: %v", err)
 	}
 
-	image, err := d.Render(nil)
+	data := struct {
+		StringsSlice []string
+	}{
+		StringsSlice: []string{"one", "two", "three", "four"},
+	}
+
+	err = d.RenderToFile(data, "test.png")
 	if err != nil {
 		t.Errorf("unexpected error while rendering: %v", err)
 	}
-
-	file, _ := os.Create("test.png")
-	defer file.Close()
-	_ = png.Encode(file, image)
 }
