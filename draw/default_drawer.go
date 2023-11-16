@@ -21,16 +21,9 @@ func (d *DefaultDrawer) InitImage(width int, height int) {
 func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, border utils.Border, radius utils.FourValues) {
 	d.gc.SetColor(c)
 
-	radius[0] = min(radius[0], h/2, w/2)
-	radius[1] = min(radius[1], h/2, w/2)
-	radius[2] = min(radius[2], h/2, w/2)
-	radius[3] = min(radius[3], h/2, w/2)
-
-	// Draw the rectangle
 	d.drawRoundedRect(0, 0, w, h, radius)
 	d.gc.Fill()
 
-	// Draw the border if it's defined
 	if border.Width > 0 {
 		d.gc.SetLineWidth(border.Width)
 		d.gc.SetColor(border.Color)
@@ -47,7 +40,6 @@ func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, border uti
 	}
 }
 func (d *DefaultDrawer) drawRoundedRect(x, y, w, h float64, radius utils.FourValues) {
-	// Adjust radii to fit the rectangle
 	radius[0] = min(radius[0], h/2, w/2)
 	radius[1] = min(radius[1], h/2, w/2)
 	radius[2] = min(radius[2], h/2, w/2)
