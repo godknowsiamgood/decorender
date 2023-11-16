@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"github.com/samber/lo"
 	"reflect"
 	"strconv"
 	"strings"
@@ -22,13 +23,13 @@ func replaceWithValues(str string, value any) string {
 	}
 
 	fm := template.FuncMap{
-		"divide": func(a, b int) int {
+		"div": func(a, b int) float64 {
 			if b == 0 {
 				return 0
 			}
-			return a / b
+			return float64(a) / float64(b)
 		},
-		"multiply": func(a, b float64) float64 {
+		"mul": func(a, b float64) float64 {
 			return a * b
 		},
 		"add": func(a, b float64) float64 {
@@ -36,6 +37,9 @@ func replaceWithValues(str string, value any) string {
 		},
 		"sub": func(a, b float64) float64 {
 			return a - b
+		},
+		"ternary": func(vIf bool, vThen, vElse any) any {
+			return lo.Ternary(vIf, vThen, vElse)
 		},
 	}
 
