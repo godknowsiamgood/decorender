@@ -1,60 +1,32 @@
 package utils
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/samber/lo"
+	"github.com/antonmedv/expr"
 	"reflect"
 	"strconv"
 	"strings"
-	"text/template"
 )
 
 func ReplaceWithValues(str string, value any, parentValue any) string {
-	result := replaceWithValues(str, value)
-	result = strings.ReplaceAll(result, "{{{", "{{")
-	result = strings.ReplaceAll(result, "}}}", "}}")
-	return replaceWithValues(result, parentValue)
-}
-
-func replaceWithValues(str string, value any) string {
-	if !strings.Contains(str, "{{") {
+	if !strings.HasPrefix(str, "~") {
 		return str
 	}
 
-	fm := template.FuncMap{
-		"div": func(a, b int) float64 {
-			if b == 0 {
-				return 0
-			}
-			return float64(a) / float64(b)
-		},
-		"mul": func(a, b float64) float64 {
-			return a * b
-		},
-		"add": func(a, b float64) float64 {
-			return a + b
-		},
-		"sub": func(a, b float64) float64 {
-			return a - b
-		},
-		"ternary": func(vIf bool, vThen, vElse any) any {
-			return lo.Ternary(vIf, vThen, vElse)
-		},
-	}
+	str = strings.TrimLeft(str, "~")
 
-	tmpl, err := template.New("template").Funcs(fm).Parse(str)
+	result, err := expr.Eval(str, map[string]any{"value": value, "parent": parentValue})
+
 	if err != nil {
-		return str
+		return fmt.Sprintf("%v", err)
 	}
 
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, value)
-	if err != nil {
-		return str
+	switch result.(type) {
+	case string:
+		return result.(string)
+	default:
+		return fmt.Sprintf("%v", result)
 	}
-
-	return buf.String()
 }
 
 func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, iteratorValue any)) {

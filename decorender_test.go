@@ -21,3 +21,15 @@ func TestFull(t *testing.T) {
 		t.Errorf("unexpected error while rendering: %v", err)
 	}
 }
+
+func BenchmarkRender(b *testing.B) {
+	d, _ := NewRenderer("./test.yaml")
+	data := struct {
+		StringsSlice []string
+	}{
+		StringsSlice: []string{"one", "two", "three", "four"},
+	}
+	for i := 0; i < b.N; i++ {
+		_ = d.Render(data, EncodeFormatJPG, nil)
+	}
+}

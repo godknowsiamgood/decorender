@@ -9,15 +9,22 @@ import (
 	"github.com/godknowsiamgood/decorender/parsing"
 	"github.com/godknowsiamgood/decorender/render"
 	"gopkg.in/yaml.v3"
-	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 var NothingToRenderErr = errors.New("nothing to render")
+
+type EncodeFormat uint
+
+const (
+	EncodeFormatPNG EncodeFormat = iota
+	EncodeFormatJPG
+)
 
 type Renderer struct {
 	root   parsing.Node
@@ -57,21 +64,42 @@ func NewRenderer(yamlFileName string) (*Renderer, error) {
 	return renderer, nil
 }
 
-func (r *Renderer) Render(userData any) (image.Image, error) {
+func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer) error {
 	nodes := layout.Do(r.root, userData, r.drawer)
 	if nodes == nil {
-		return nil, NothingToRenderErr
+		return NothingToRenderErr
 	}
 
 	render.Do(nodes[0], r.drawer)
 
-	return r.drawer.RetrieveImage(), nil
+	layout.Release(nodes)
+
+	img := r.drawer.RetrieveImage()
+	defer r.drawer.ReleaseImage()
+
+	if w == nil {
+		return nil
+	}
+
+	switch format {
+	case EncodeFormatPNG:
+		return png.Encode(w, img)
+	case EncodeFormatJPG:
+		return jpeg.Encode(w, img, &jpeg.Options{Quality: 95})
+	}
+
+	return nil
 }
 
 func (r *Renderer) RenderToFile(userData any, fileName string) error {
-	img, err := r.Render(userData)
-	if err != nil {
-		return err
+	var format EncodeFormat
+	switch strings.ToLower(filepath.Ext(fileName)) {
+	case ".jpg", ".jpeg":
+		format = EncodeFormatJPG
+	case ".png":
+		format = EncodeFormatPNG
+	default:
+		return fmt.Errorf("unsupported file format")
 	}
 
 	file, err := os.Create(fileName)
@@ -80,12 +108,10 @@ func (r *Renderer) RenderToFile(userData any, fileName string) error {
 	}
 	defer func() { _ = file.Close() }()
 
-	switch strings.ToLower(filepath.Ext(fileName)) {
-	case ".jpg", ".jpeg":
-		return jpeg.Encode(file, img, &jpeg.Options{Quality: 95})
-	case ".png":
-		return png.Encode(file, img)
-	default:
-		return fmt.Errorf("unsupported file format")
+	err = r.Render(userData, format, file)
+	if err != nil {
+		return err
 	}
+
+	return nil
 }

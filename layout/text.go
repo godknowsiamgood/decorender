@@ -8,7 +8,7 @@ import (
 const hyphen = '-'
 const hyphenString = string(hyphen)
 
-func spitTextToNodes(text string, context layoutPhaseContext) ([]Node, Node) {
+func spitTextToNodes(text string, context layoutPhaseContext) ([]*Node, Node) {
 	tokens := splitText(text)
 
 	var height float64
@@ -18,10 +18,10 @@ func spitTextToNodes(text string, context layoutPhaseContext) ([]Node, Node) {
 		height = context.props.LineHeight
 	}
 
-	var nodes []Node
+	var nodes []*Node
 
 	for _, t := range tokens {
-		var node Node
+		node := nodesPool.Get().(*Node)
 		node.Text = t
 		node.TextHasHyphenAtEnd = strings.HasSuffix(t, hyphenString)
 		node.Size.W = context.drawer.GetTextWidth(t, context.props.FontDescription)

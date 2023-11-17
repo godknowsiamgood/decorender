@@ -9,12 +9,12 @@ import (
 	"math"
 )
 
-func scaleAndCropImage(src image.Image, w, h float64, isContains bool) image.Image {
+func scaleAndCropImage(src image.Image, w, h float64, isContains bool) image.RGBA {
 	imgWidth, imgHeight := src.Bounds().Dx(), src.Bounds().Dy()
 	dstAspectRatio := w / h
 	srcAspectRatio := float64(imgWidth) / float64(imgHeight)
 
-	var scaledImg image.Image
+	var scaledImg image.RGBA
 
 	if isContains {
 		var scaleFactor float64
@@ -26,11 +26,10 @@ func scaleAndCropImage(src image.Image, w, h float64, isContains bool) image.Ima
 		newWidth := float64(imgWidth) * scaleFactor
 		newHeight := float64(imgHeight) * scaleFactor
 
-		scaledAndCropped := image.NewRGBA(image.Rect(0, 0, int(w), int(h)))
-		dstRect := image.Rect(int((w-newWidth)/2), int((h-newHeight)/2), int((w+newWidth)/2), int((h+newHeight)/2))
-		draw.CatmullRom.Scale(scaledAndCropped, dstRect, src, src.Bounds(), draw.Over, nil)
+		scaledImg = utils.NewRGBAImageFromPool(image.Rect(0, 0, int(w), int(h)))
 
-		scaledImg = scaledAndCropped
+		dstRect := image.Rect(int((w-newWidth)/2), int((h-newHeight)/2), int((w+newWidth)/2), int((h+newHeight)/2))
+		draw.CatmullRom.Scale(&scaledImg, dstRect, src, src.Bounds(), draw.Over, nil)
 	} else {
 		srcX, srcY, srcW, srcH := 0, 0, imgWidth, imgHeight
 
@@ -42,10 +41,8 @@ func scaleAndCropImage(src image.Image, w, h float64, isContains bool) image.Ima
 			srcY = (imgHeight - srcH) / 2
 		}
 
-		scaledAndCropped := image.NewRGBA(image.Rect(0, 0, int(w), int(h)))
-		draw.CatmullRom.Scale(scaledAndCropped, scaledAndCropped.Bounds(), src, image.Rect(srcX, srcY, srcX+srcW, srcY+srcH), draw.Over, nil)
-
-		scaledImg = scaledAndCropped
+		scaledImg = utils.NewRGBAImageFromPool(image.Rect(0, 0, int(w), int(h)))
+		draw.CatmullRom.Scale(&scaledImg, scaledImg.Bounds(), src, image.Rect(srcX, srcY, srcX+srcW, srcY+srcH), draw.Over, nil)
 	}
 
 	return scaledImg
@@ -61,6 +58,8 @@ func applyBorderRadius(src image.Image, radius utils.FourValues) image.Image {
 
 	dst := image.NewRGBA(bounds)
 	draw.DrawMask(dst, src.Bounds(), src, image.Point{}, mask, image.Point{}, draw.Over)
+
+	d.ReleaseImage()
 
 	return dst
 }

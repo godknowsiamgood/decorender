@@ -19,7 +19,7 @@ type layoutPhaseContext struct {
 	drawer draw.Drawer
 }
 
-func Do(n parsing.Node, userData any, drawer draw.Drawer) []Node {
+func Do(n parsing.Node, userData any, drawer draw.Drawer) []*Node {
 	nodes := doLayoutNode(n, layoutPhaseContext{
 		size: utils.Size{},
 		props: CalculatedProperties{
@@ -45,13 +45,26 @@ func Do(n parsing.Node, userData any, drawer draw.Drawer) []Node {
 		utils.ScaleAllValues(&nodes[0], scale)
 	}
 
-	prefetchResources(&nodes[0])
+	prefetchResources(nodes[0])
 
 	return nodes
 }
 
-func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentValue any) []Node {
-	var layoutNodes []Node
+func Release(nodes []*Node) {
+	allNodes := make([]*Node, 0, 100)
+	iterateNode(nodes[0], func(n *Node) bool {
+		allNodes = append(allNodes, n)
+		return true
+	})
+	for i := len(allNodes) - 1; i >= 0; i-- {
+		n := allNodes[i]
+		*n = Node{}
+		nodesPool.Put(n)
+	}
+}
+
+func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentValue any) []*Node {
+	var layoutNodes []*Node
 
 	utils.RunForEach(value, utils.ReplaceWithValues(n.ForEach, value, parentValue), func(currentValue any, iteratorValue any) {
 		if iteratorValue == nil {
@@ -60,7 +73,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentV
 
 		newContext := context
 
-		var ln Node
+		ln := nodesPool.Get().(*Node)
 
 		ln.Props = calculateProperties(n, context, currentValue, iteratorValue)
 		newContext.props = ln.Props
@@ -90,7 +103,7 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentV
 
 		// retrieve child nodes
 
-		var childNodes []Node
+		var childNodes []*Node
 		var whiteSpaceNode Node
 
 		if n.Image != "" {
@@ -139,11 +152,11 @@ func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentV
 						}
 						currentWidth += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + ln.Props.InnerGap
 					}
-					rows[currentRowIndex] = append(rows[currentRowIndex], &childNodes[icn])
+					rows[currentRowIndex] = append(rows[currentRowIndex], childNodes[icn])
 				}
 			} else {
 				for icn := range childNodes {
-					rows[0] = append(rows[0], &childNodes[icn])
+					rows[0] = append(rows[0], childNodes[icn])
 				}
 			}
 
@@ -258,7 +271,7 @@ func prefetchResources(n *Node) {
 		resources.PrefetchResource(n.Image)
 	}
 	for icn := range n.Children {
-		prefetchResources(&n.Children[icn])
+		prefetchResources(n.Children[icn])
 	}
 }
 

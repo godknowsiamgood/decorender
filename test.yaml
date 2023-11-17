@@ -61,7 +61,7 @@ inner:
           bkgColor: blue
 
   - inner:
-      - text: Gaps horizontal and verical
+      - text: Gaps horizontal and vertical
         width: 100
       - bkgColor: coral
         padding: 10
@@ -231,7 +231,8 @@ inner:
         inner:
           - forEach: StringsSlice
             bkgColor: blue
-            text: '{{{ $len := len . }}}{{{ div 100 $len }}}'
+            font: 15
+            text: "~ value + ' ' + string(100 / len(parent)) + ' ' + string(findIndex(parent, # == value))"
 
   - inner:
       - text: Justify vertical and size test
@@ -246,3 +247,16 @@ inner:
             inner:
               - size: 20 30
                 bkgColor: blue
+
+  - inner:
+      - text: Justify test
+        width: 150
+      - bkgColor: salmon
+        size: 150 100
+        padding: 10
+        justify: space-between
+        innerDirection: row
+        inner:
+          - size: 10 10
+            forEach: 5
+            bkgColor: white

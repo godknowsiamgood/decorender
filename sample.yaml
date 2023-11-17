@@ -1,0 +1,26 @@
+size: 600 400
+bkgColor: 0xfffef5
+font: 16
+color: black
+inner:
+  - text: Wrapping
+  - innerDirection: row
+    innerGap: 5
+    bkgColor: 0x7fbeeb
+    padding: 5
+    size: 150 50
+    inner:
+      - forEach: 8
+        size: 20 10
+        bkgColor: black
+  - text: Justify
+  - innerDirection: row
+    innerGap: 5
+    bkgColor: 0x7fbeeb
+    padding: 5
+    size: 150 50
+    justify: space-between
+    inner:
+      - forEach: 9
+        size: 20 10
+        bkgColor: black

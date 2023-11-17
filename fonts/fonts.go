@@ -55,13 +55,25 @@ func GetFont(fd FaceDescription) *opentype.Font {
 	return currentFace.font
 }
 
+var prevFaceDescription FaceDescription
+var prevFace font.Face
+
 func GetFontFace(fd FaceDescription) font.Face {
+	if fd == prevFaceDescription {
+		return prevFace
+	}
+
 	f := GetFont(fd)
+
 	face, _ := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    fd.Size,
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
+
+	prevFaceDescription = fd
+	prevFace = face
+
 	return face
 }
 

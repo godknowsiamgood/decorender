@@ -15,7 +15,12 @@ type DefaultDrawer struct {
 }
 
 func (d *DefaultDrawer) InitImage(width int, height int) {
-	d.gc = gg.NewContext(width, height)
+	img := utils.NewRGBAImageFromPool(image.Rect(0, 0, width, height))
+	d.gc = gg.NewContextForRGBA(&img)
+}
+
+func (d *DefaultDrawer) ReleaseImage() {
+	utils.ReleaseImage(*d.gc.Image().(*image.RGBA))
 }
 
 func (d *DefaultDrawer) DrawRect(w float64, h float64, c color.Color, border utils.Border, radius utils.FourValues) {

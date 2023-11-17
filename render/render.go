@@ -6,11 +6,12 @@ import (
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
 	"github.com/godknowsiamgood/decorender/resources"
+	"github.com/godknowsiamgood/decorender/utils"
 	"image"
 	"math"
 )
 
-func Do(n layout.Node, drawer draw.Drawer) {
+func Do(n *layout.Node, drawer draw.Drawer) {
 	drawer.SaveState()
 
 	topPadding := n.Props.Padding[0]
@@ -36,13 +37,15 @@ func Do(n layout.Node, drawer draw.Drawer) {
 		if err == nil {
 			imgReader := bytes.NewReader(imageBytes)
 			srcImg, _, err := image.Decode(imgReader)
-			srcImg = scaleAndCropImage(srcImg, n.Size.W, n.Size.H, n.Props.BkgImageSize == "contain")
+
+			scaledAndCroppedImage := scaleAndCropImage(srcImg, n.Size.W, n.Size.H, n.Props.BkgImageSize == "contain")
 			if n.Props.BorderRadius.HasValues() {
 				srcImg = applyBorderRadius(srcImg, n.Props.BorderRadius)
 			}
 			if err == nil {
-				drawer.DrawImage(srcImg)
+				drawer.DrawImage(&scaledAndCroppedImage)
 			}
+			utils.ReleaseImage(scaledAndCroppedImage)
 		}
 	}
 

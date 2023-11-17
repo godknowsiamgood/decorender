@@ -4,6 +4,7 @@ import (
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/utils"
 	"image/color"
+	"sync"
 )
 
 type CalculatedProperties struct {
@@ -33,9 +34,24 @@ type Node struct {
 	Text               string
 	Image              string
 	TextHasHyphenAtEnd bool
-	Children           []Node
+	Children           []*Node
 }
 
 func (n *Node) HasAnchors() bool {
 	return n.Props.Anchors.Has()
+}
+
+func iterateNode(n *Node, cb func(n *Node) bool) {
+	if cb(n) == false {
+		return
+	}
+	for _, cn := range n.Children {
+		iterateNode(cn, cb)
+	}
+}
+
+var nodesPool = sync.Pool{
+	New: func() any {
+		return &Node{}
+	},
 }
