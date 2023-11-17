@@ -18,6 +18,7 @@ renderer, err := decorender.NewRenderer("./layout.yaml")
 // with different data and is concurrent-safe.
 renderer.Render(nil)
 renderer.Render(yourData)
+renderer.RenderToFile(yourData, "result.jpg")
 ```
 
 ## Format
