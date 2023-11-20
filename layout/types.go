@@ -4,7 +4,6 @@ import (
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/utils"
 	"image/color"
-	"sync"
 )
 
 type CalculatedProperties struct {
@@ -28,30 +27,100 @@ type CalculatedProperties struct {
 }
 
 type Node struct {
+	Id string
+
 	Pos                utils.Pos
 	Size               utils.Size
 	Props              CalculatedProperties
 	Text               string
 	Image              string
 	TextHasHyphenAtEnd bool
-	Children           []*Node
+	ParentId           int
+
+	RowIndex   int
+	InRowIndex int
 }
 
 func (n *Node) HasAnchors() bool {
 	return n.Props.Anchors.Has()
 }
 
-func iterateNode(n *Node, cb func(n *Node) bool) {
-	if cb(n) == false {
-		return
-	}
-	for _, cn := range n.Children {
-		iterateNode(cn, cb)
+type Nodes []Node
+
+func (nodes Nodes) GetRootNode() *Node {
+	if len(nodes) == 0 {
+		return nil
+	} else {
+		return &nodes[len(nodes)-1]
 	}
 }
 
-var nodesPool = sync.Pool{
-	New: func() any {
-		return &Node{}
-	},
+func (nodes Nodes) IterateNodes(cb func(node *Node)) {
+	for i := range nodes {
+		cb(&nodes[i])
+	}
+}
+
+func (nodes Nodes) IterateRows(parentId int, cb func(rowIndex int, node *Node)) {
+	rowIndex := -1
+	for i := range nodes {
+		n := &nodes[i]
+		if parentId == n.ParentId && rowIndex != n.RowIndex {
+			rowIndex = n.RowIndex
+			cb(rowIndex, n)
+		}
+	}
+}
+
+func (nodes Nodes) IterateRow(parentId int, rowIndex int, cb func(cn *Node)) {
+	for i := range nodes {
+		if nodes[i].ParentId == parentId && rowIndex == nodes[i].RowIndex {
+			cb(&nodes[i])
+		}
+	}
+}
+
+func (nodes Nodes) IterateChildNodes(parentId int, cb func(cn *Node)) {
+	for i := range nodes {
+		if nodes[i].ParentId == parentId {
+			cb(&nodes[i])
+		}
+	}
+}
+
+func (nodes Nodes) RowsTotalHeight(parentId int, gap float64) (height float64, count int) {
+	nodes.IterateRows(parentId, func(rowIndex int, node *Node) {
+		if node.HasAnchors() {
+			return
+		}
+		count += 1
+		height += node.Size.H
+	})
+	return height + float64(count-1)*gap, count
+}
+
+func (nodes Nodes) RowTotalWidth(parentId int, rowIndex int, textWhitespaceWidth float64, gap float64) (float64, int) {
+	var total float64
+
+	hyphensCount := 0
+	count := 0
+	nodes.IterateRow(parentId, rowIndex, func(cn *Node) {
+		if cn.HasAnchors() {
+			return
+		}
+
+		total += cn.Size.W
+		if cn.TextHasHyphenAtEnd {
+			hyphensCount += 1
+		}
+		count += 1
+	})
+
+	return total + textWhitespaceWidth*float64(count-hyphensCount) + gap*float64(count-1), count
+}
+
+func (nodes Nodes) IterateDepthFirst(cb func(node *Node)) {
+	for i := len(nodes) - 1; i >= 0; i-- {
+		cb(&nodes[i])
+	}
 }

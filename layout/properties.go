@@ -198,14 +198,21 @@ func prepareParsedValue(value float64, isVertical bool, unit int, parentWidth fl
 
 var parseValueRegex = regexp.MustCompile(`(?i)(-?\d+(\.\d+)?)(%|w|h|)`)
 
-func parseNValues(str string, max int, parentWidth float64, parentHeight float64, data any, parentData any, relativeToWidth bool, allowNegative bool) (utils.FourValues, error) {
-	str = utils.ReplaceWithValues(str, data, parentData)
+var valuesEmptyErr = errors.New("values empty")
+var valuesParseErr = errors.New("values format not correct")
 
+func parseNValues(str string, max int, parentWidth float64, parentHeight float64, data any, parentData any, relativeToWidth bool, allowNegative bool) (utils.FourValues, error) {
 	var result utils.FourValues
+
+	if str == "" {
+		return result, valuesEmptyErr
+	}
+
+	str = utils.ReplaceWithValues(str, data, parentData)
 
 	matches := parseValueRegex.FindAllStringSubmatch(str, -1)
 	if len(matches) > max || len(matches) == 0 {
-		return result, errors.New("failed to parse values")
+		return result, valuesParseErr
 	}
 
 	for i, match := range matches {

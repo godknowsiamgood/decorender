@@ -12,6 +12,7 @@ require (
 require (
 	github.com/antonmedv/expr v1.15.4 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/llgcode/draw2d v0.0.0-20231022063514-1acb54133d2a // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )

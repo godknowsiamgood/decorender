@@ -77,6 +77,19 @@ func GetFontFace(fd FaceDescription) font.Face {
 	return face
 }
 
+func MeasureTextWidth(text string, fd FaceDescription) float64 {
+	face := GetFontFace(fd)
+
+	var width float64
+
+	for _, runeValue := range []rune(text) {
+		advance, _ := face.GlyphAdvance(runeValue)
+		width += float64(advance)
+	}
+
+	return width / 64 // Convert from 26.6 fixed-point to float64
+}
+
 func GetFontFaceBaseLineOffset(face font.Face, lineHeight float64) float64 {
 	metrics := face.Metrics()
 	ascent := float64(metrics.Ascent.Ceil())

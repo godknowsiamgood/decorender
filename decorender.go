@@ -66,11 +66,11 @@ func NewRenderer(yamlFileName string) (*Renderer, error) {
 
 func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer) error {
 	nodes := layout.Do(r.root, userData, r.drawer)
-	if nodes == nil {
+	if nodes.GetRootNode() == nil {
 		return NothingToRenderErr
 	}
 
-	render.Do(nodes[0], r.drawer)
+	render.Do(nodes, r.drawer)
 
 	layout.Release(nodes)
 

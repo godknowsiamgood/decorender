@@ -28,6 +28,21 @@ func (fv FourValues) Height() float64 {
 	return fv[1]
 }
 
+type Sizes [4]float64
+
+func (s Sizes) Top() float64 {
+	return s[0]
+}
+func (s Sizes) Left() float64 {
+	return s[3]
+}
+func (s Sizes) Right() float64 {
+	return s[1]
+}
+func (s Sizes) Bottom() float64 {
+	return s[2]
+}
+
 type Anchor struct {
 	Has    bool
 	Offset float64
@@ -80,4 +95,29 @@ type Border struct {
 func GetSha256(str string) string {
 	hash := sha256.Sum256([]byte(str))
 	return hex.EncodeToString(hash[:])
+}
+
+type Stack[T any] []T
+
+func (s *Stack[T]) Push(value T) {
+	*s = append(*s, value)
+}
+
+func (s *Stack[T]) Pop() T {
+	if len(*s) == 0 {
+		var zeroValue T
+		return zeroValue
+	}
+	index := len(*s) - 1
+	element := (*s)[index]
+	*s = (*s)[:index]
+	return element
+}
+
+func (s *Stack[T]) Last(defaultValue T) T {
+	if len(*s) == 0 {
+		return defaultValue
+	} else {
+		return (*s)[len(*s)-1]
+	}
 }

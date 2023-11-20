@@ -9,18 +9,28 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"
+	"sync"
 )
 
 type layoutPhaseContext struct {
-	size   utils.Size
-	pos    utils.Pos
-	props  CalculatedProperties
-	isRoot bool
-	drawer draw.Drawer
+	size     utils.Size
+	pos      utils.Pos
+	props    CalculatedProperties
+	isRoot   bool
+	drawer   draw.Drawer
+	parentId int
 }
 
-func Do(n parsing.Node, userData any, drawer draw.Drawer) []*Node {
-	nodes := doLayoutNode(n, layoutPhaseContext{
+var nodesPool = sync.Pool{
+	New: func() any {
+		return make(Nodes, 0, 10)
+	},
+}
+
+func Do(pn parsing.Node, userData any, drawer draw.Drawer) Nodes {
+	nodes := nodesPool.Get().(Nodes)
+
+	doLayoutNode(pn, &nodes, layoutPhaseContext{
 		size: utils.Size{},
 		props: CalculatedProperties{
 			FontColor:  color.RGBA{A: 0},
@@ -36,258 +46,218 @@ func Do(n parsing.Node, userData any, drawer draw.Drawer) []*Node {
 		drawer: drawer,
 	}, userData, nil)
 
-	if len(nodes) == 0 {
+	root := nodes.GetRootNode()
+	if root == nil {
 		return nil
 	}
 
-	scale := n.GetScale()
-	if scale != 1.0 {
-		utils.ScaleAllValues(&nodes[0], scale)
+	if pn.GetScale() != 1.0 {
+		utils.ScaleAllValues(&nodes[0], pn.GetScale())
 	}
-
-	prefetchResources(nodes[0])
 
 	return nodes
 }
 
-func Release(nodes []*Node) {
-	allNodes := make([]*Node, 0, 100)
-	iterateNode(nodes[0], func(n *Node) bool {
-		allNodes = append(allNodes, n)
-		return true
-	})
-	for i := len(allNodes) - 1; i >= 0; i-- {
-		n := allNodes[i]
-		*n = Node{}
-		nodesPool.Put(n)
-	}
+func Release(nodes Nodes) {
+	nodes = nodes[0:0]
+	nodesPool.Put(nodes)
 }
 
-func doLayoutNode(n parsing.Node, context layoutPhaseContext, value any, parentValue any) []*Node {
-	var layoutNodes []*Node
+func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any) {
+	parentId := context.parentId + 1
 
-	utils.RunForEach(value, utils.ReplaceWithValues(n.ForEach, value, parentValue), func(currentValue any, iteratorValue any) {
+	utils.RunForEach(value, utils.ReplaceWithValues(pn.ForEach, value, parentValue), func(currentValue any, iteratorValue any) {
 		if iteratorValue == nil {
 			iteratorValue = parentValue
 		}
 
+		props := calculateProperties(pn, context, currentValue, iteratorValue)
+
 		newContext := context
+		newContext.props = props
+		newContext.parentId = parentId
 
-		ln := nodesPool.Get().(*Node)
+		// Setup context size
 
-		ln.Props = calculateProperties(n, context, currentValue, iteratorValue)
-		newContext.props = ln.Props
-
-		needSetNodeSize := false
-		if ln.Props.Size.W == -1 {
-			needSetNodeSize = true
-		} else {
-			ln.Size.W = ln.Props.Size.W
-			newContext.size.W = ln.Props.Size.W
+		if props.Size.W != -1 {
+			newContext.size.W = props.Size.W
 		}
-		if ln.Props.Size.H == -1 {
-			needSetNodeSize = true
-		} else {
-			ln.Size.H = ln.Props.Size.H
-			newContext.size.H = ln.Props.Size.H
-		}
+		newContext.size.W -= props.Padding[1] + props.Padding[3]
 
+		if props.Size.H != -1 {
+			newContext.size.H = props.Size.H
+		}
+		newContext.size.H -= props.Padding[0] + props.Padding[2]
+
+		// Special case for root: size should be set explicitly
 		if newContext.isRoot {
-			if ln.Size.W == 0 || ln.Size.H == 0 {
+			if props.Size.W == 0 || props.Size.H == 0 {
 				return
 			} else {
-				context.drawer.InitImage(int(ln.Size.W*n.GetScale()), int(ln.Size.H*n.GetScale()))
+				context.drawer.InitImage(int(props.Size.W*pn.GetScale()), int(props.Size.H*pn.GetScale()))
 			}
 			newContext.isRoot = false
 		}
 
-		// retrieve child nodes
+		// Retrieve child nodes
 
-		var childNodes []*Node
-		var whiteSpaceNode Node
+		var textWhitespaceWidth float64
 
-		if n.Image != "" {
-			ln.Image = utils.ReplaceWithValues(n.Image, currentValue, iteratorValue)
-			if needSetNodeSize {
-				ln.Size = context.size
-			}
-		}
-
-		var isText bool
 		var text string
-		if n.Text != "" {
-			text = utils.ReplaceWithValues(n.Text, currentValue, iteratorValue)
-			isText = text != ""
+		if pn.Text != "" {
+			text = utils.ReplaceWithValues(pn.Text, currentValue, iteratorValue)
 		}
 
-		newContext.size.W -= ln.Props.Padding[1] + ln.Props.Padding[3]
-		newContext.size.H -= ln.Props.Padding[0] + ln.Props.Padding[2]
+		from := len(*nodes)
 
-		if isText {
-			childNodes, whiteSpaceNode = spitTextToNodes(text, newContext)
+		if text != "" {
+			textWhitespaceWidth = spitTextToNodes(nodes, text, newContext)
 		} else {
-			for _, nc := range n.Inner {
-				childNodes = append(childNodes, doLayoutNode(nc, newContext, currentValue, iteratorValue)...)
+			for _, nc := range pn.Inner {
+				doLayoutNode(nc, nodes, newContext, currentValue, iteratorValue)
 			}
 		}
 
-		if len(childNodes) > 0 {
-			// process wrapping
+		hasMoreThanOneChild := len(*nodes)-from > 1
+		isDirectionRow := props.IsChildrenDirectionRow
 
-			rows := make([][]*Node, 1)
+		if hasMoreThanOneChild {
 
-			isDirectionRow := ln.Props.IsChildrenDirectionRow
-			textWhitespaceWidth := lo.Ternary(isDirectionRow && isText, whiteSpaceNode.Size.W, 0)
+			// do child wrapping
 
 			if isDirectionRow {
 				var currentRowIndex int
+				var currentInRowIndex int
 				var currentWidth float64
-				for icn, cn := range childNodes {
+
+				var prevInRow *Node
+				nodes.IterateChildNodes(parentId, func(cn *Node) {
 					if !cn.HasAnchors() {
-						// if node Size is not set explicitly, so newContext.Size.W represents max width of node
-						if ln.Props.IsWrappingEnabled && currentWidth+cn.Size.W > newContext.size.W && cn.Size.W < newContext.size.W {
+						if props.IsWrappingEnabled && currentWidth+cn.Size.W > newContext.size.W && cn.Size.W < newContext.size.W {
 							currentWidth = 0
 							currentRowIndex += 1
-							rows = append(rows, []*Node{})
+							currentInRowIndex = 0
+
+							// Maybe we can wrap whole-hyphened word to look it better
+							if prevInRow != nil && prevInRow.TextHasHyphenAtEnd {
+								wholeWidth := prevInRow.Size.W + cn.Size.W
+								if wholeWidth <= newContext.size.W {
+									prevInRow.InRowIndex = currentRowIndex
+									prevInRow.RowIndex = 0
+									currentInRowIndex = 1
+								}
+							}
+
+							prevInRow = nil
 						}
-						currentWidth += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + ln.Props.InnerGap
+						currentWidth += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + props.InnerGap
 					}
-					rows[currentRowIndex] = append(rows[currentRowIndex], childNodes[icn])
-				}
+
+					cn.RowIndex = currentRowIndex
+					cn.InRowIndex = currentInRowIndex
+					currentInRowIndex += 1
+					prevInRow = cn
+				})
 			} else {
-				for icn := range childNodes {
-					rows[0] = append(rows[0], childNodes[icn])
-				}
+				i := 0
+				nodes.IterateChildNodes(parentId, func(cn *Node) {
+					cn.RowIndex = i
+					i++
+				})
 			}
 
-			// calculate node size
+			// do justify and vertical position for rows
 
-			if needSetNodeSize {
-				var s float64
-				for _, row := range rows {
-					s = max(s, rowTotalSize(row, textWhitespaceWidth, isDirectionRow, ln.Props.InnerGap))
+			if props.IsChildrenDirectionRow {
+				var top float64
+				nodes.IterateRows(parentId, func(rowIndex int, _ *Node) {
+					totalRowSize, countInRow := nodes.RowTotalWidth(parentId, rowIndex, textWhitespaceWidth, props.InnerGap)
+					offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalRowSize, newContext.size.W, countInRow)
 
-					if isDirectionRow {
-						var rowMaxHeight float64
-						for _, cn := range row {
-							if !cn.HasAnchors() {
-								rowMaxHeight = max(rowMaxHeight, cn.Size.H)
-							}
+					var maxHeight float64
+					nodes.IterateRow(parentId, rowIndex, func(cn *Node) {
+						if cn.HasAnchors() {
+							return
 						}
-						ln.Size.H += rowMaxHeight
-					} else if ln.Size.W == 0 {
-						var maxWidth float64
-						for _, cn := range row {
-							if !cn.HasAnchors() {
-								maxWidth = max(maxWidth, cn.Size.W)
-							}
-						}
-						ln.Size.W = maxWidth
-
-						// in columns, there are only one row, so add paddings to size right now
-						ln.Size.W += ln.Props.Padding[1] + ln.Props.Padding[3]
-					}
-				}
-
-				if isDirectionRow {
-					ln.Size.H += ln.Props.InnerGap * float64(len(rows)-1)
-					ln.Size.H += ln.Props.Padding[0] + ln.Props.Padding[2]
-					if ln.Size.W == 0 {
-						ln.Size.W = s
-						ln.Size.W += ln.Props.Padding[1] + ln.Props.Padding[3]
-					}
-				} else {
-					ln.Size.H = s
-					ln.Size.H += ln.Props.Padding[0] + ln.Props.Padding[2]
-				}
-			}
-
-			// process Justify
-
-			var top float64
-			for _, row := range rows {
-				var offset float64
-				var gap float64
-
-				totalRowSize := rowTotalSize(row, textWhitespaceWidth, isDirectionRow, ln.Props.InnerGap)
-
-				parentSize := lo.Ternary(isDirectionRow, ln.Size.W, ln.Size.H)
-				if ln.Props.Justify == "center" {
-					offset = parentSize/2 - totalRowSize/2
-				} else if ln.Props.Justify == "end" {
-					offset = parentSize - totalRowSize
-				} else if ln.Props.Justify == "space-between" {
-					gap = (parentSize - totalRowSize) / float64(len(row)-1)
-				} else if ln.Props.Justify == "space-evenly" {
-					gap = (parentSize - totalRowSize) / float64(len(row)+1)
-					offset = gap
-				}
-				gap = max(gap, ln.Props.InnerGap)
-
-				var maxHeight float64
-				for icn, cn := range row {
-					if cn.HasAnchors() {
-						continue
-					}
-
-					if isDirectionRow {
-						row[icn].Pos.Left = offset
-						row[icn].Pos.Top = top
+						cn.Pos.Left = offset
+						cn.Pos.Top = top
 						offset += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + gap
-						maxHeight = max(maxHeight, cn.Size.H)
-					} else {
-						row[icn].Pos.Top = offset
-						offset += cn.Size.H + gap
+					})
+
+					top += maxHeight + gap
+				})
+			} else {
+				totalHeight, count := nodes.RowsTotalHeight(parentId, props.InnerGap)
+				offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalHeight, newContext.size.H, count)
+				nodes.IterateRows(parentId, func(_ int, node *Node) {
+					if node.HasAnchors() {
+						return
 					}
-				}
-				top += maxHeight + gap
+					node.Pos.Top = offset
+					offset += node.Size.H + gap
+				})
 			}
 
-			// process vertical align
+			// do horizontal align for column children
 
 			if !isDirectionRow {
-				for icn, cn := range rows[0] {
+				nodes.IterateRow(parentId, 0, func(cn *Node) {
 					if cn.HasAnchors() {
-						continue
+						return
 					}
-					if ln.Props.ChildrenColumnAlign == "center" {
-						rows[0][icn].Pos.Left = ln.Size.W/2 - cn.Size.W/2
-					} else if ln.Props.ChildrenColumnAlign == "right" {
-						rows[0][icn].Pos.Left = ln.Size.W - cn.Size.W
+
+					if props.ChildrenColumnAlign == "center" {
+						cn.Pos.Left = newContext.size.W/2 - cn.Size.W/2
+					} else if props.ChildrenColumnAlign == "right" {
+						cn.Pos.Left = newContext.size.W - cn.Size.W
 					}
-				}
+				})
 			}
 		}
 
-		ln.Children = append(ln.Children, childNodes...)
-		layoutNodes = append(layoutNodes, ln)
+		if props.Size.W == -1 {
+			props.Size.W = 0
+			nodes.IterateRows(parentId, func(rowIndex int, _ *Node) {
+				rowWidth, _ := nodes.RowTotalWidth(parentId, rowIndex, textWhitespaceWidth, props.InnerGap)
+				props.Size.W = max(props.Size.W, rowWidth)
+			})
+			props.Size.W += props.Padding[1] + props.Padding[3]
+		}
+
+		if props.Size.H == -1 {
+			height, _ := nodes.RowsTotalHeight(parentId, props.InnerGap)
+			props.Size.H += height + props.Padding[0] + props.Padding[2]
+		}
+
+		ln := Node{
+			Id:       pn.Id,
+			Size:     props.Size,
+			Props:    props,
+			Text:     text,
+			Image:    utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue),
+			ParentId: context.parentId,
+		}
+
+		if ln.Image != "" {
+			resources.PrefetchResource(ln.Image)
+		}
+
+		*nodes = append(*nodes, ln)
 	})
-
-	return layoutNodes
 }
 
-func prefetchResources(n *Node) {
-	if n.Image != "" {
-		resources.PrefetchResource(n.Image)
+func getJustifyOffsetAndGap(justifyProp string, gapProp float64, totalSize float64, parentSize float64, count int) (offset float64, gap float64) {
+	switch justifyProp {
+	case "center":
+		offset = parentSize/2 - totalSize/2
+	case "end":
+		offset = parentSize - totalSize
+	case "space-between":
+		gap = (parentSize - totalSize) / float64(count-1)
+	case "space-evenly":
+		gap = (parentSize - totalSize) / float64(count+1)
+		offset = gap
 	}
-	for icn := range n.Children {
-		prefetchResources(n.Children[icn])
-	}
-}
-
-func rowTotalSize(row []*Node, textWhitespaceWidth float64, isDirectionRow bool, gap float64) float64 {
-	whiteSpaceCount := len(row) - 1
-	sz := lo.Reduce(row, func(total float64, n *Node, index int) float64 {
-		if n.HasAnchors() {
-			return total
-		}
-
-		total += lo.Ternary(isDirectionRow, n.Size.W, n.Size.H)
-		if n.TextHasHyphenAtEnd {
-			whiteSpaceCount -= 1
-		}
-		return total
-	}, 0)
-
-	return sz + textWhitespaceWidth*float64(whiteSpaceCount) + float64(len(row)-1)*gap
+	gap = max(gap, gapProp)
+	return offset, gap
 }

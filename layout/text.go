@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"github.com/godknowsiamgood/decorender/fonts"
+	"github.com/godknowsiamgood/decorender/utils"
 	"strings"
 	"unicode"
 )
@@ -8,7 +10,7 @@ import (
 const hyphen = '-'
 const hyphenString = string(hyphen)
 
-func spitTextToNodes(text string, context layoutPhaseContext) ([]*Node, Node) {
+func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) float64 {
 	tokens := splitText(text)
 
 	var height float64
@@ -18,28 +20,29 @@ func spitTextToNodes(text string, context layoutPhaseContext) ([]*Node, Node) {
 		height = context.props.LineHeight
 	}
 
-	var nodes []*Node
-
 	for _, t := range tokens {
-		node := nodesPool.Get().(*Node)
-		node.Text = t
-		node.TextHasHyphenAtEnd = strings.HasSuffix(t, hyphenString)
-		node.Size.W = context.drawer.GetTextWidth(t, context.props.FontDescription)
-		node.Size.H = height
-		node.Props = CalculatedProperties{
-			FontColor:       context.props.FontColor,
-			FontDescription: context.props.FontDescription,
-			LineHeight:      context.props.LineHeight,
+		node := Node{
+			Size: utils.Size{
+				W: fonts.MeasureTextWidth(t, context.props.FontDescription),
+				H: height,
+			},
+			Props: CalculatedProperties{
+				FontColor:       context.props.FontColor,
+				FontDescription: context.props.FontDescription,
+				LineHeight:      context.props.LineHeight,
+			},
+			Text:               t,
+			TextHasHyphenAtEnd: strings.HasSuffix(t, hyphenString),
+			ParentId:           context.parentId,
 		}
-		nodes = append(nodes, node)
+
+		*nodes = append(*nodes, node)
 	}
 
-	var whiteSpaceNode Node
 	withSpace := context.drawer.GetTextWidth("a b", context.props.FontDescription)
 	withoutSpace := context.drawer.GetTextWidth("ab", context.props.FontDescription)
-	whiteSpaceNode.Size.W, whiteSpaceNode.Size.H = withSpace-withoutSpace, height
 
-	return nodes, whiteSpaceNode
+	return withSpace - withoutSpace
 }
 
 func splitText(input string) []string {
