@@ -35,6 +35,7 @@ fontFaces:            # faces that will be used in layout
     style: italic
     weight: 400
     file: ./Inter-italic-400.ttf
+sample:                 # any arbitrary object to test layout with expr templates
 inner:                  # child nodes
   - size: 100% 100%     # size. Use absolute values, or percents
     bkgColor: salmon    # background color. Use predefined colors, or 0xaabbcc, 0xaabbccff
