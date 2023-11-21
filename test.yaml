@@ -2,9 +2,8 @@ size: 1000 1000
 bkgColor: black
 color: white
 font: Roboto 14
-innerGap: 10
 innerDirection: row
-padding: 10
+padding: 20
 fontFaces:
   - family: Roboto
     file: ./Roboto-Regular.ttf
@@ -280,3 +279,14 @@ inner:
               - size: 60 60
                 bkgColor: blue
                 absolute: right bottom
+
+  - inner:
+      - text: Rotate 1
+        width: 130
+      - size: 100 100
+        bkgColor: coral
+        inner:
+          - size: 50 50
+            bkgColor: white
+            rotate: 20
+            absolute: right bottom

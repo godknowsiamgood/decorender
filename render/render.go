@@ -48,8 +48,8 @@ func Do(nodes layout.Nodes) *image.RGBA {
 		state := stack.Last()
 		if state.dst == nil || math.Abs(n.Props.Rotation) > math.SmallestNonzeroFloat64 {
 			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W)), int(math.Ceil(n.Size.H)))
-			left, top := getLeftTopOffsets(state.node, n)
-			drawNode(&cache, state.dst, n, left, top)
+			//left, top := getLeftTopOffsets(state.node, n)
+			drawNode(&cache, state.dst, n, 0, 0)
 			state.pos = utils.Pos{
 				Left: n.Props.Padding[3],
 				Top:  n.Props.Padding[0],
@@ -58,8 +58,8 @@ func Do(nodes layout.Nodes) *image.RGBA {
 			left, top := getLeftTopOffsets(state.node, n)
 			drawNode(&cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
 			state.pos = utils.Pos{
-				Left: left + state.pos.Left + n.Props.Padding[3],
-				Top:  top + state.pos.Top + n.Props.Padding[0],
+				Left: left + state.pos.Left,
+				Top:  top + state.pos.Top,
 			}
 		}
 		state.node = n
@@ -91,9 +91,12 @@ func popupStack(stack *utils.Stack[drawState], level int) {
 				currBounds := state.dst.Bounds()
 				dx := rBounds.Dx() - currBounds.Dx()
 				dy := rBounds.Dy() - currBounds.Dy()
+				left, top := getLeftTopOffsets(upperState.node, state.node)
+				topPadding := upperState.node.Props.Padding[0]
+				leftPadding := upperState.node.Props.Padding[3]
 				bounds := image.Rect(
-					int(state.node.Pos.Left)-dx/2, int(state.node.Pos.Top)-dy/2,
-					int(state.node.Pos.Left)-dx/2+rBounds.Dx(), int(state.node.Pos.Top)-dy/2+rBounds.Dy())
+					int(upperState.pos.Left+left+leftPadding)-dx/2, int(upperState.pos.Top+top+topPadding)-dy/2,
+					int(upperState.pos.Left+left+leftPadding)-dx/2+rBounds.Dx(), int(upperState.pos.Top+top+topPadding)-dy/2+rBounds.Dy())
 				draw.Draw(upperState.dst, bounds, rotated, image.Point{}, draw.Over)
 				utils.ReleaseImage(state.dst)
 			}
