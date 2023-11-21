@@ -3,7 +3,9 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"image/color"
+	"sync"
 )
 
 type Size struct {
@@ -114,10 +116,40 @@ func (s *Stack[T]) Pop() T {
 	return element
 }
 
-func (s *Stack[T]) Last(defaultValue T) T {
+func (s *Stack[T]) Last() T {
 	if len(*s) == 0 {
-		return defaultValue
+		var v T
+		return v
 	} else {
 		return (*s)[len(*s)-1]
 	}
+}
+
+type DebugPool struct {
+	free []any
+	mx   sync.Mutex
+	New  func() any
+	cnt  int
+}
+
+func (p *DebugPool) Get() any {
+	p.mx.Lock()
+	defer p.mx.Unlock()
+	if len(p.free) == 0 {
+		p.cnt += 1
+		return p.New()
+	} else {
+		v := p.free[len(p.free)-1]
+		p.free = p.free[0 : len(p.free)-2]
+		p.cnt += 1
+		return v
+	}
+}
+
+func (p *DebugPool) Put(v any) {
+	p.mx.Lock()
+	defer p.mx.Unlock()
+	p.cnt -= 1
+	p.free = append(p.free, v)
+	fmt.Println("back", p.cnt)
 }

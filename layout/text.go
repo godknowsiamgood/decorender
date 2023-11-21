@@ -20,7 +20,9 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 		height = context.props.LineHeight
 	}
 
-	for _, t := range tokens {
+	for i := len(tokens) - 1; i >= 0; i-- {
+		t := tokens[i]
+
 		node := Node{
 			Size: utils.Size{
 				W: fonts.MeasureTextWidth(t, context.props.FontDescription),
@@ -33,16 +35,13 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 			},
 			Text:               t,
 			TextHasHyphenAtEnd: strings.HasSuffix(t, hyphenString),
-			ParentId:           context.parentId,
+			Level:              context.level + 1,
 		}
 
 		*nodes = append(*nodes, node)
 	}
 
-	withSpace := context.drawer.GetTextWidth("a b", context.props.FontDescription)
-	withoutSpace := context.drawer.GetTextWidth("ab", context.props.FontDescription)
-
-	return withSpace - withoutSpace
+	return fonts.MeasureTextWidth(" ", context.props.FontDescription)
 }
 
 func splitText(input string) []string {

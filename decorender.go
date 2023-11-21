@@ -3,11 +3,11 @@ package decorender
 import (
 	"errors"
 	"fmt"
-	"github.com/godknowsiamgood/decorender/draw"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
 	"github.com/godknowsiamgood/decorender/parsing"
 	"github.com/godknowsiamgood/decorender/render"
+	"github.com/godknowsiamgood/decorender/utils"
 	"gopkg.in/yaml.v3"
 	"image/jpeg"
 	"image/png"
@@ -26,9 +26,12 @@ const (
 	EncodeFormatJPG
 )
 
+type Options struct {
+	UseSample bool
+}
+
 type Renderer struct {
-	root   parsing.Node
-	drawer draw.Drawer
+	root parsing.Node
 }
 
 func NewRenderer(yamlFileName string) (*Renderer, error) {
@@ -53,8 +56,7 @@ func NewRenderer(yamlFileName string) (*Renderer, error) {
 	root = parsing.KeepDebugNodes(root)
 
 	renderer := &Renderer{
-		root:   root,
-		drawer: &draw.DefaultDrawer{},
+		root: root,
 	}
 
 	if err = fonts.LoadFaces(root.FontFaces); err != nil {
@@ -64,18 +66,24 @@ func NewRenderer(yamlFileName string) (*Renderer, error) {
 	return renderer, nil
 }
 
-func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer) error {
-	nodes := layout.Do(r.root, userData, r.drawer)
-	if nodes.GetRootNode() == nil {
+func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer, opts *Options) error {
+	if opts != nil && opts.UseSample {
+		userData = r.root.Sample
+	}
+
+	nodes := layout.Do(r.root, userData)
+
+	root := nodes.GetRootNode()
+	if root == nil || root.Size.W < 0.1 || root.Size.H < 0.1 {
 		return NothingToRenderErr
 	}
 
-	render.Do(nodes, r.drawer)
+	dst := render.Do(nodes)
+	defer func() {
+		utils.ReleaseImage(dst)
+	}()
 
 	layout.Release(nodes)
-
-	img := r.drawer.RetrieveImage()
-	defer r.drawer.ReleaseImage()
 
 	if w == nil {
 		return nil
@@ -83,15 +91,15 @@ func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer) error 
 
 	switch format {
 	case EncodeFormatPNG:
-		return png.Encode(w, img)
+		return png.Encode(w, dst)
 	case EncodeFormatJPG:
-		return jpeg.Encode(w, img, &jpeg.Options{Quality: 95})
+		return jpeg.Encode(w, dst, &jpeg.Options{Quality: 95})
 	}
 
 	return nil
 }
 
-func (r *Renderer) RenderToFile(userData any, fileName string) error {
+func (r *Renderer) RenderToFile(userData any, fileName string, opts *Options) error {
 	var format EncodeFormat
 	switch strings.ToLower(filepath.Ext(fileName)) {
 	case ".jpg", ".jpeg":
@@ -108,7 +116,7 @@ func (r *Renderer) RenderToFile(userData any, fileName string) error {
 	}
 	defer func() { _ = file.Close() }()
 
-	err = r.Render(userData, format, file)
+	err = r.Render(userData, format, file, opts)
 	if err != nil {
 		return err
 	}

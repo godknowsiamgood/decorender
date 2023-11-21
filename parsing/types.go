@@ -12,11 +12,11 @@ type Node struct {
 	LineHeight          string     `yaml:"lineHeight"`
 	InnerDirection      string     `yaml:"innerDirection"`
 	Justify             string     `yaml:"justify"`
-	ChildrenColumnAlign string     `yaml:"childrenColumnAlign"`
-	ChildrenWrap        string     `yaml:"childrenWrap"`
+	ChildrenColumnAlign string     `yaml:"innerColumnAlign"`
+	ChildrenWrap        string     `yaml:"innerWrap"`
 	Padding             string     `yaml:"padding"`
 	Text                string     `yaml:"text"`
-	Image               string     `yaml:"image"`
+	Image               string     `yaml:"bkgImage"`
 	FontFaces           []FontFace `yaml:"fontFaces"`
 	Font                string     `yaml:"font"`
 	FontFamily          string     `yaml:"fontFamily"`
@@ -32,6 +32,7 @@ type Node struct {
 	BkgImageSize        string     `yaml:"bkgImageSize"`
 	Border              string     `yaml:"border"`
 	Scale               string     `yaml:"scale"`
+	Sample              any        `yaml:"sample"`
 
 	ForEach string `yaml:"forEach"`
 	Inner   []Node `yaml:"inner"`

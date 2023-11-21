@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"github.com/godknowsiamgood/decorender/draw"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/parsing"
 	"github.com/godknowsiamgood/decorender/resources"
@@ -13,12 +12,10 @@ import (
 )
 
 type layoutPhaseContext struct {
-	size     utils.Size
-	pos      utils.Pos
-	props    CalculatedProperties
-	isRoot   bool
-	drawer   draw.Drawer
-	parentId int
+	size  utils.Size
+	pos   utils.Pos
+	props CalculatedProperties
+	level int
 }
 
 var nodesPool = sync.Pool{
@@ -27,23 +24,22 @@ var nodesPool = sync.Pool{
 	},
 }
 
-func Do(pn parsing.Node, userData any, drawer draw.Drawer) Nodes {
+func Do(pn parsing.Node, userData any) Nodes {
 	nodes := nodesPool.Get().(Nodes)
 
 	doLayoutNode(pn, &nodes, layoutPhaseContext{
 		size: utils.Size{},
 		props: CalculatedProperties{
-			FontColor:  color.RGBA{A: 0},
+			FontColor:  color.RGBA{A: 255},
 			LineHeight: -1,
 			FontDescription: fonts.FaceDescription{
 				Family: "Roboto",
-				Size:   23,
+				Size:   16,
 				Weight: 400,
 				Style:  font.StyleNormal,
 			},
 		},
-		isRoot: true,
-		drawer: drawer,
+		level: -1,
 	}, userData, nil)
 
 	root := nodes.GetRootNode()
@@ -52,7 +48,9 @@ func Do(pn parsing.Node, userData any, drawer draw.Drawer) Nodes {
 	}
 
 	if pn.GetScale() != 1.0 {
-		utils.ScaleAllValues(&nodes[0], pn.GetScale())
+		nodes.IterateNodes(func(node *Node) {
+			utils.ScaleAllValues(node, pn.GetScale())
+		})
 	}
 
 	return nodes
@@ -64,7 +62,7 @@ func Release(nodes Nodes) {
 }
 
 func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any) {
-	parentId := context.parentId + 1
+	nodeLevel := context.level + 1
 
 	utils.RunForEach(value, utils.ReplaceWithValues(pn.ForEach, value, parentValue), func(currentValue any, iteratorValue any) {
 		if iteratorValue == nil {
@@ -75,7 +73,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		newContext := context
 		newContext.props = props
-		newContext.parentId = parentId
+		newContext.level = nodeLevel
 
 		// Setup context size
 
@@ -88,16 +86,6 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			newContext.size.H = props.Size.H
 		}
 		newContext.size.H -= props.Padding[0] + props.Padding[2]
-
-		// Special case for root: size should be set explicitly
-		if newContext.isRoot {
-			if props.Size.W == 0 || props.Size.H == 0 {
-				return
-			} else {
-				context.drawer.InitImage(int(props.Size.W*pn.GetScale()), int(props.Size.H*pn.GetScale()))
-			}
-			newContext.isRoot = false
-		}
 
 		// Retrieve child nodes
 
@@ -113,25 +101,30 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		if text != "" {
 			textWhitespaceWidth = spitTextToNodes(nodes, text, newContext)
 		} else {
-			for _, nc := range pn.Inner {
-				doLayoutNode(nc, nodes, newContext, currentValue, iteratorValue)
+			for i := len(pn.Inner) - 1; i >= 0; i-- {
+				doLayoutNode(pn.Inner[i], nodes, newContext, currentValue, iteratorValue)
 			}
 		}
 
-		hasMoreThanOneChild := len(*nodes)-from > 1
+		childrenNodesLevel := nodeLevel + 1
+
+		childCount := 0
+		nodes.IterateChildNodes(childrenNodesLevel, from, func(_ *Node) {
+			childCount += 1
+		})
+
 		isDirectionRow := props.IsChildrenDirectionRow
 
-		if hasMoreThanOneChild {
+		if childCount > 1 {
 
 			// do child wrapping
-
 			if isDirectionRow {
 				var currentRowIndex int
 				var currentInRowIndex int
 				var currentWidth float64
 
 				var prevInRow *Node
-				nodes.IterateChildNodes(parentId, func(cn *Node) {
+				nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
 					if !cn.HasAnchors() {
 						if props.IsWrappingEnabled && currentWidth+cn.Size.W > newContext.size.W && cn.Size.W < newContext.size.W {
 							currentWidth = 0
@@ -160,7 +153,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				})
 			} else {
 				i := 0
-				nodes.IterateChildNodes(parentId, func(cn *Node) {
+				nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
 					cn.RowIndex = i
 					i++
 				})
@@ -170,26 +163,27 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 			if props.IsChildrenDirectionRow {
 				var top float64
-				nodes.IterateRows(parentId, func(rowIndex int, _ *Node) {
-					totalRowSize, countInRow := nodes.RowTotalWidth(parentId, rowIndex, textWhitespaceWidth, props.InnerGap)
+				nodes.IterateRows(childrenNodesLevel, from, func(rowIndex int, _ *Node) {
+					totalRowSize, countInRow := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
 					offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalRowSize, newContext.size.W, countInRow)
 
 					var maxHeight float64
-					nodes.IterateRow(parentId, rowIndex, func(cn *Node) {
+					nodes.IterateRow(childrenNodesLevel, from, rowIndex, func(cn *Node) {
 						if cn.HasAnchors() {
 							return
 						}
 						cn.Pos.Left = offset
 						cn.Pos.Top = top
 						offset += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + gap
+						maxHeight = max(maxHeight, cn.Size.H)
 					})
 
 					top += maxHeight + gap
 				})
 			} else {
-				totalHeight, count := nodes.RowsTotalHeight(parentId, props.InnerGap)
+				totalHeight, count := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
 				offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalHeight, newContext.size.H, count)
-				nodes.IterateRows(parentId, func(_ int, node *Node) {
+				nodes.IterateRows(childrenNodesLevel, from, func(_ int, node *Node) {
 					if node.HasAnchors() {
 						return
 					}
@@ -201,7 +195,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			// do horizontal align for column children
 
 			if !isDirectionRow {
-				nodes.IterateRow(parentId, 0, func(cn *Node) {
+				nodes.IterateRow(childrenNodesLevel, from, 0, func(cn *Node) {
 					if cn.HasAnchors() {
 						return
 					}
@@ -216,26 +210,24 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		}
 
 		if props.Size.W == -1 {
-			props.Size.W = 0
-			nodes.IterateRows(parentId, func(rowIndex int, _ *Node) {
-				rowWidth, _ := nodes.RowTotalWidth(parentId, rowIndex, textWhitespaceWidth, props.InnerGap)
+			nodes.IterateRows(childrenNodesLevel, from, func(rowIndex int, _ *Node) {
+				rowWidth, _ := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
 				props.Size.W = max(props.Size.W, rowWidth)
 			})
-			props.Size.W += props.Padding[1] + props.Padding[3]
+			props.Size.W = max(0, props.Size.W+props.Padding[1]+props.Padding[3])
 		}
 
 		if props.Size.H == -1 {
-			height, _ := nodes.RowsTotalHeight(parentId, props.InnerGap)
-			props.Size.H += height + props.Padding[0] + props.Padding[2]
+			height, _ := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
+			props.Size.H = max(0, height+props.Padding[0]+props.Padding[2])
 		}
 
 		ln := Node{
-			Id:       pn.Id,
-			Size:     props.Size,
-			Props:    props,
-			Text:     text,
-			Image:    utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue),
-			ParentId: context.parentId,
+			Id:    pn.Id,
+			Size:  props.Size,
+			Props: props,
+			Image: utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue),
+			Level: nodeLevel,
 		}
 
 		if ln.Image != "" {

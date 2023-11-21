@@ -3,7 +3,15 @@ package layout
 import (
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/utils"
+	"golang.org/x/image/font"
 	"image/color"
+)
+
+type BkgImageSizeType int
+
+const (
+	BkgImageSizeCover BkgImageSizeType = iota
+	BkgImageSizeContain
 )
 
 type CalculatedProperties struct {
@@ -22,7 +30,7 @@ type CalculatedProperties struct {
 	Anchors                utils.Anchors
 	InnerGap               float64
 	Rotation               float64
-	BkgImageSize           string
+	BkgImageSize           BkgImageSizeType
 	Border                 utils.Border
 }
 
@@ -35,7 +43,8 @@ type Node struct {
 	Text               string
 	Image              string
 	TextHasHyphenAtEnd bool
-	ParentId           int
+	Level              int
+	Face               font.Face
 
 	RowIndex   int
 	InRowIndex int
@@ -61,35 +70,35 @@ func (nodes Nodes) IterateNodes(cb func(node *Node)) {
 	}
 }
 
-func (nodes Nodes) IterateRows(parentId int, cb func(rowIndex int, node *Node)) {
+func (nodes Nodes) IterateRows(level int, from int, cb func(rowIndex int, firstInRowNode *Node)) {
 	rowIndex := -1
-	for i := range nodes {
+	for i := len(nodes) - 1; i >= from; i-- {
 		n := &nodes[i]
-		if parentId == n.ParentId && rowIndex != n.RowIndex {
+		if level == n.Level && rowIndex != n.RowIndex {
 			rowIndex = n.RowIndex
 			cb(rowIndex, n)
 		}
 	}
 }
 
-func (nodes Nodes) IterateRow(parentId int, rowIndex int, cb func(cn *Node)) {
-	for i := range nodes {
-		if nodes[i].ParentId == parentId && rowIndex == nodes[i].RowIndex {
+func (nodes Nodes) IterateRow(level int, from int, rowIndex int, cb func(cn *Node)) {
+	for i := len(nodes) - 1; i >= from; i-- {
+		if nodes[i].Level == level && rowIndex == nodes[i].RowIndex {
 			cb(&nodes[i])
 		}
 	}
 }
 
-func (nodes Nodes) IterateChildNodes(parentId int, cb func(cn *Node)) {
-	for i := range nodes {
-		if nodes[i].ParentId == parentId {
+func (nodes Nodes) IterateChildNodes(level int, from int, cb func(cn *Node)) {
+	for i := len(nodes) - 1; i >= from; i-- {
+		if nodes[i].Level == level {
 			cb(&nodes[i])
 		}
 	}
 }
 
-func (nodes Nodes) RowsTotalHeight(parentId int, gap float64) (height float64, count int) {
-	nodes.IterateRows(parentId, func(rowIndex int, node *Node) {
+func (nodes Nodes) RowsTotalHeight(level int, from int, gap float64) (height float64, count int) {
+	nodes.IterateRows(level, from, func(rowIndex int, node *Node) {
 		if node.HasAnchors() {
 			return
 		}
@@ -99,12 +108,12 @@ func (nodes Nodes) RowsTotalHeight(parentId int, gap float64) (height float64, c
 	return height + float64(count-1)*gap, count
 }
 
-func (nodes Nodes) RowTotalWidth(parentId int, rowIndex int, textWhitespaceWidth float64, gap float64) (float64, int) {
+func (nodes Nodes) RowTotalWidth(level int, from int, rowIndex int, textWhitespaceWidth float64, gap float64) (float64, int) {
 	var total float64
 
 	hyphensCount := 0
 	count := 0
-	nodes.IterateRow(parentId, rowIndex, func(cn *Node) {
+	nodes.IterateRow(level, from, rowIndex, func(cn *Node) {
 		if cn.HasAnchors() {
 			return
 		}
@@ -116,11 +125,5 @@ func (nodes Nodes) RowTotalWidth(parentId int, rowIndex int, textWhitespaceWidth
 		count += 1
 	})
 
-	return total + textWhitespaceWidth*float64(count-hyphensCount) + gap*float64(count-1), count
-}
-
-func (nodes Nodes) IterateDepthFirst(cb func(node *Node)) {
-	for i := len(nodes) - 1; i >= 0; i-- {
-		cb(&nodes[i])
-	}
+	return total + textWhitespaceWidth*float64(count-hyphensCount-1) + gap*float64(count-1), count
 }

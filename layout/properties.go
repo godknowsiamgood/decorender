@@ -115,7 +115,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		Anchors:                anchors,
 		InnerGap:               innerGap[0],
 		Rotation:               rotation[0],
-		BkgImageSize:           bkgImageSize,
+		BkgImageSize:           lo.Ternary(bkgImageSize == "contain", BkgImageSizeContain, BkgImageSizeCover),
 		Border:                 border,
 	}
 }
