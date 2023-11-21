@@ -58,8 +58,8 @@ func Do(nodes layout.Nodes) *image.RGBA {
 			left, top := getLeftTopOffsets(state.node, n)
 			drawNode(&cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
 			state.pos = utils.Pos{
-				Left: state.pos.Left + n.Pos.Left + n.Props.Padding[3],
-				Top:  state.pos.Top + n.Pos.Top + n.Props.Padding[0],
+				Left: left + state.pos.Left + n.Props.Padding[3],
+				Top:  top + state.pos.Top + n.Props.Padding[0],
 			}
 		}
 		state.node = n

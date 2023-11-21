@@ -174,7 +174,7 @@ inner:
         size: 150 100
         padding: 10
         inner:
-          - image: ./test_img.jpeg
+          - bkgImage: ./test_img.jpeg
             size: 100% 100%
 
   - inner:
@@ -195,7 +195,7 @@ inner:
         width: 120
       - size: 120 120
         inner:
-          - image: ./test_img.jpeg
+          - bkgImage: ./test_img.jpeg
             bkgImageSize: contain
             bkgColor: salmon
             size: 100% 100%
@@ -262,3 +262,21 @@ inner:
           - size: 10 10
             forEach: 5
             bkgColor: white
+
+  - inner:
+      - text: Absolute positioning with children
+        width: 130
+      - size: 130 130
+        bkgColor: white
+        inner:
+          - size: 100 100
+            bkgColor: coral
+            absolute: left bottom
+            inner:
+              - size: 30 30
+                bkgColor: red
+              - size: 30 30
+                bkgColor: green
+              - size: 60 60
+                bkgColor: blue
+                absolute: right bottom
