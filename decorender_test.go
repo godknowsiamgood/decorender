@@ -18,7 +18,7 @@ func TestFull(t *testing.T) {
 		StringsSlice: []string{"one", "two", "three", "four"},
 	}
 
-	err = d.RenderToFile(data, "test.png", &Options{UseSample: true})
+	err = d.RenderToFile(data, "test.png", &Options{UseSample: false})
 
 	if err != nil {
 		t.Errorf("unexpected error while rendering: %v", err)

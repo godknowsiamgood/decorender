@@ -24,7 +24,7 @@ type CalculatedProperties struct {
 	Justify                string
 	ChildrenColumnAlign    string
 	IsWrappingEnabled      bool
-	Padding                utils.FourValues
+	Padding                utils.TopRightBottomLeft
 	LineHeight             float64
 	BorderRadius           utils.FourValues
 	Anchors                utils.Anchors

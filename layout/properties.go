@@ -109,7 +109,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		ChildrenColumnAlign:    childrenColumnAlign,
 		IsWrappingEnabled:      childrenWrap == "wrap",
 		LineHeight:             lo.Ternary(n.LineHeight == "", context.props.LineHeight, lineHeight[0]),
-		Padding:                padding,
+		Padding:                utils.TopRightBottomLeft{padding[0], padding[1], padding[2], padding[3]},
 		FontDescription:        fontDescription,
 		BorderRadius:           borderRadius,
 		Anchors:                anchors,

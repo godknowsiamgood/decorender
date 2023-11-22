@@ -30,18 +30,18 @@ func (fv FourValues) Height() float64 {
 	return fv[1]
 }
 
-type Sizes [4]float64
+type TopRightBottomLeft [4]float64
 
-func (s Sizes) Top() float64 {
+func (s TopRightBottomLeft) Top() float64 {
 	return s[0]
 }
-func (s Sizes) Left() float64 {
+func (s TopRightBottomLeft) Left() float64 {
 	return s[3]
 }
-func (s Sizes) Right() float64 {
+func (s TopRightBottomLeft) Right() float64 {
 	return s[1]
 }
-func (s Sizes) Bottom() float64 {
+func (s TopRightBottomLeft) Bottom() float64 {
 	return s[2]
 }
 

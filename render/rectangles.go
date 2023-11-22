@@ -7,7 +7,14 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sync"
 )
+
+var rasterizerPool = sync.Pool{
+	New: func() any {
+		return &vector.Rasterizer{}
+	},
+}
 
 func alphaPremultiply(c color.RGBA) color.RGBA {
 	alpha := float64(c.A) / 255

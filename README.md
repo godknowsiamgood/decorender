@@ -47,11 +47,12 @@ inner:                  # child nodes
     innerGap: 5         # minimal gap between children
     padding: 10 20      # padding for children
     borderRadius: 20    # border radii (e.g. 15 66, 10 20 30 40)
-    absolute: left      # node will be anchored to parent at desired position, e.g.
+    absolute: left      # node will be anchored to parent at desired position
+                        # with respect of parent padding, e.g.
                         # left - at center left, right bottom - at corner,
                         # left right - node will be stretched horizontally.
                         # Also you can specify offset for each direction, e.g. left/-10 top/55
-    bkgImage:           # image for element background. Use local or external file starting with https://
+    bkgImage:           # image for element background. Use local or external file starting with https://...
     bkgImageSize: cover # cover or contain
     forEach: Array      # name of field in user data. Node will be replicated accordingly
 ```

@@ -80,12 +80,12 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		if props.Size.W != -1 {
 			newContext.size.W = props.Size.W
 		}
-		newContext.size.W -= props.Padding[1] + props.Padding[3]
+		newContext.size.W -= props.Padding.Right() + props.Padding.Left()
 
 		if props.Size.H != -1 {
 			newContext.size.H = props.Size.H
 		}
-		newContext.size.H -= props.Padding[0] + props.Padding[2]
+		newContext.size.H -= props.Padding.Left() + props.Padding.Bottom()
 
 		// Retrieve child nodes
 
@@ -97,6 +97,10 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		}
 
 		from := len(*nodes)
+
+		// All nodes are stored in linear slice for efficiency,
+		// and for traversing reasons later at render phase,
+		// all children in slice are in reverse order.
 
 		if text != "" {
 			textWhitespaceWidth = spitTextToNodes(nodes, text, newContext)
@@ -214,12 +218,12 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				rowWidth, _ := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
 				props.Size.W = max(props.Size.W, rowWidth)
 			})
-			props.Size.W = max(0, props.Size.W+props.Padding[1]+props.Padding[3])
+			props.Size.W = max(0, props.Size.W+props.Padding.Right()+props.Padding.Bottom())
 		}
 
 		if props.Size.H == -1 {
 			height, _ := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
-			props.Size.H = max(0, height+props.Padding[0]+props.Padding[2])
+			props.Size.H = max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 
 		ln := Node{

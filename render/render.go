@@ -8,13 +8,15 @@ import (
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
-	"golang.org/x/image/vector"
 	"image"
 	"image/color"
 	"math"
 	"sync"
 )
 
+// drawState is a current state in render stack
+// it keeps current level, to track when to pop (actually it is stored in node, but separate field is more convenient)
+// it keeps current image destination (when it comes to rotation, all nodes should be rendered separately)
 type drawState struct {
 	level int
 	dst   *image.RGBA
@@ -28,53 +30,49 @@ var stacksPool = sync.Pool{
 	},
 }
 
-var rasterizerPool = sync.Pool{
-	New: func() any {
-		return &vector.Rasterizer{}
-	},
-}
-
 func Do(nodes layout.Nodes) *image.RGBA {
 	cache := newCache()
-
 	stack := stacksPool.Get().(utils.Stack[drawState])
-
-	for i := len(nodes) - 1; i >= 0; i-- {
-		n := &nodes[i]
-
-		popupStack(&stack, n.Level)
-
-		// Prepare state and render
-		state := stack.Last()
-		if state.dst == nil || math.Abs(n.Props.Rotation) > math.SmallestNonzeroFloat64 {
-			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W)), int(math.Ceil(n.Size.H)))
-			//left, top := getLeftTopOffsets(state.node, n)
-			drawNode(&cache, state.dst, n, 0, 0)
-			state.pos = utils.Pos{
-				Left: n.Props.Padding[3],
-				Top:  n.Props.Padding[0],
-			}
-		} else {
-			left, top := getLeftTopOffsets(state.node, n)
-			drawNode(&cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
-			state.pos = utils.Pos{
-				Left: left + state.pos.Left,
-				Top:  top + state.pos.Top,
-			}
-		}
-		state.node = n
-		state.level = n.Level
-
-		stack.Push(state)
-	}
-
-	popupStack(&stack, 1)
 
 	defer func() {
 		stack = stack[0:0]
 		stacksPool.Put(stack)
 		cache.release()
 	}()
+
+	// last node in slice is a root, since in recursive layout phase it was added in very last step
+	for i := len(nodes) - 1; i >= 0; i-- {
+		n := &nodes[i]
+
+		popupStack(&stack, n.Level)
+
+		state := stack.Last() // copy of current state
+
+		// Create new destination image in case of root node and nodes that rotating
+		if state.dst == nil || math.Abs(n.Props.Rotation) > math.SmallestNonzeroFloat64 {
+			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W)), int(math.Ceil(n.Size.H)))
+			drawNode(&cache, state.dst, n, 0, 0) // new destination, starting from origin point
+			state.pos = utils.Pos{
+				Left: n.Props.Padding.Left(),
+				Top:  n.Props.Padding.Top(),
+			}
+		} else {
+			left, top := getLocalLeftTop(state.node, n)
+			drawNode(&cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
+
+			// Next position is world + current + current's padding
+			state.pos = utils.Pos{
+				Left: state.pos.Left + left + n.Props.Padding.Left(),
+				Top:  state.pos.Top + top + n.Props.Padding.Top(),
+			}
+		}
+
+		state.node = n
+		state.level = n.Level
+		stack.Push(state) // new state added
+	}
+
+	popupStack(&stack, 1)
 
 	return stack[0].dst
 }
@@ -86,17 +84,19 @@ func popupStack(stack *utils.Stack[drawState], level int) {
 			upperState := stack.Last()
 
 			if state.dst != upperState.dst && upperState.dst != nil {
+				// at this moment only case when destination may differ is rotation
+				// so perform rotation of image and then render it on image upper on stack
 				rotated := imaging.Rotate(state.dst, state.node.Props.Rotation, color.RGBA{})
-				rBounds := rotated.Bounds()
-				currBounds := state.dst.Bounds()
-				dx := rBounds.Dx() - currBounds.Dx()
-				dy := rBounds.Dy() - currBounds.Dy()
-				left, top := getLeftTopOffsets(upperState.node, state.node)
-				topPadding := upperState.node.Props.Padding[0]
-				leftPadding := upperState.node.Props.Padding[3]
+				rotatedBounds := rotated.Bounds()
+
+				// rotated image has different sizes, so we have to center it
+				dx := rotatedBounds.Dx() - state.dst.Bounds().Dx()
+				dy := rotatedBounds.Dy() - state.dst.Bounds().Dy()
+
+				left, top := getLocalLeftTop(upperState.node, state.node)
 				bounds := image.Rect(
-					int(upperState.pos.Left+left+leftPadding)-dx/2, int(upperState.pos.Top+top+topPadding)-dy/2,
-					int(upperState.pos.Left+left+leftPadding)-dx/2+rBounds.Dx(), int(upperState.pos.Top+top+topPadding)-dy/2+rBounds.Dy())
+					int(upperState.pos.Left+left)-dx/2, int(upperState.pos.Top+top)-dy/2,
+					int(upperState.pos.Left+left)-dx/2+rotatedBounds.Dx(), int(upperState.pos.Top+top)-dy/2+rotatedBounds.Dy())
 				draw.Draw(upperState.dst, bounds, rotated, image.Point{}, draw.Over)
 				utils.ReleaseImage(state.dst)
 			}
@@ -108,15 +108,15 @@ func popupStack(stack *utils.Stack[drawState], level int) {
 	}
 }
 
-func getLeftTopOffsets(parentNode *layout.Node, childNode *layout.Node) (float64, float64) {
+func getLocalLeftTop(parentNode *layout.Node, childNode *layout.Node) (float64, float64) {
 	var left float64
 	var top float64
 
 	if childNode.HasAnchors() {
-		topPadding := parentNode.Props.Padding[0]
-		rightPadding := parentNode.Props.Padding[1]
-		bottomPadding := parentNode.Props.Padding[2]
-		leftPadding := parentNode.Props.Padding[3]
+		topPadding := parentNode.Props.Padding.Top()
+		rightPadding := parentNode.Props.Padding.Right()
+		bottomPadding := parentNode.Props.Padding.Bottom()
+		leftPadding := parentNode.Props.Padding.Left()
 
 		if childNode.Props.Anchors.HasLeft() || childNode.Props.Anchors.HasRight() {
 			if !childNode.Props.Anchors.HasTop() && !childNode.Props.Anchors.HasBottom() {
@@ -145,9 +145,9 @@ func getLeftTopOffsets(parentNode *layout.Node, childNode *layout.Node) (float64
 	return left, top
 }
 
-func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, x float64, y float64) {
+func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, left float64, top float64) {
 	if n.Props.BkgColor.A > 0 {
-		drawRoundedRect(cache, dst, alphaPremultiply(n.Props.BkgColor), x, y, n.Size.W, n.Size.H, n.Props.BorderRadius)
+		drawRoundedRect(cache, dst, alphaPremultiply(n.Props.BkgColor), left, top, n.Size.W, n.Size.H, n.Props.BorderRadius)
 	}
 
 	if n.Image != "" {
@@ -158,10 +158,10 @@ func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, x float64, y float6
 				utils.UseTempImage(bounds.Dx(), bounds.Dy(), func(tempImage *image.RGBA) {
 					copyImage(tempImage, scaledAndCroppedImage)
 					applyBorderRadius(cache, tempImage, n.Props.BorderRadius)
-					draw.Draw(dst, image.Rect(int(x), int(y), int(x)+bounds.Dx(), int(y)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
+					draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
 				})
 			} else {
-				draw.Draw(dst, image.Rect(int(x), int(y), int(x)+bounds.Dx(), int(y)+bounds.Dy()), scaledAndCroppedImage, image.Point{}, draw.Over)
+				draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), scaledAndCroppedImage, image.Point{}, draw.Over)
 			}
 		}
 	}
@@ -171,7 +171,7 @@ func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, x float64, y float6
 		cache.prevUsedFaceMx.Lock()
 		if cache.prevUsedFaceDescription == n.Props.FontDescription {
 			fontDrawer = cache.prevUsedFaceDrawer
-			fontDrawer.Dot = fixed.P(int(x), int(y+cache.prevUsedFaceOffset))
+			fontDrawer.Dot = fixed.P(int(left), int(top+cache.prevUsedFaceOffset))
 		} else {
 			face := fonts.GetFontFace(n.Props.FontDescription)
 			offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
@@ -179,7 +179,7 @@ func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, x float64, y float6
 				Dst:  dst,
 				Src:  image.NewUniform(n.Props.FontColor),
 				Face: face,
-				Dot:  fixed.P(int(x), int(y+offset)),
+				Dot:  fixed.P(int(left), int(top+offset)),
 			}
 
 			cache.prevUsedFaceDescription = n.Props.FontDescription
@@ -191,6 +191,6 @@ func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, x float64, y float6
 	}
 
 	if n.Props.Border.Width > 0 {
-		drawRoundedBorder(cache, dst, x, y, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
+		drawRoundedBorder(cache, dst, left, top, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
 	}
 }

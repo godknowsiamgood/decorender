@@ -2,6 +2,7 @@ size: 1000 1000
 bkgColor: black
 color: white
 font: Roboto 14
+scale: 1
 innerDirection: row
 padding: 20
 fontFaces:
@@ -32,7 +33,7 @@ inner:
 
   - inner:
       - text: Gaps vertical
-        width: 80
+        width: 50
       - bkgColor: coral
         padding: 10
         innerGap: 10
@@ -100,7 +101,7 @@ inner:
         width: 100
       - bkgColor: coral
         size: 200 100
-        padding: 10
+        padding: 10 15 22 11
         inner:
           - size: 20 20
             bkgColor: red
@@ -133,11 +134,12 @@ inner:
         width: 150
       - bkgColor: coral
         size: 200 100
+        padding: 5
         inner:
           - size: 20 20
             bkgColor: red
             absolute: left right
-          - size: 20 20
+          - size: 20 10
             bkgColor: green
             absolute: top bottom
           - size: 20 20
