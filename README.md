@@ -28,33 +28,34 @@ renderer.RenderToFile(yourData, "result.jpg", &decorender.Options{})
 ## Format
 
 ```yaml
-size: 1000 1000       # optional size of result image in pixels
-scale: 2              # optional multiplier of result image (e.g. 0.5, 1.5, 10)
-fontFaces:            # faces that will be used in layout
+size: 1000 1000       # - Optional size of result image in pixels.
+scale: 2              # - Optional multiplier of result image (e.g. 0.5, 1.5, 10).
+fontFaces:            # - Font faces that will be used in layout.
   - family: Inter
     style: italic
     weight: 400
     file: ./Inter-italic-400.ttf
-sample:                 # any arbitrary object to test layout with expr templates
-inner:                  # child nodes
-  - size: 100% 100%     # size. Use absolute values, or percents
-    bkgColor: salmon    # background color. Use predefined colors, or 0xaabbcc, 0xaabbccff
-    color: black        # color of text. This property is inherited to all children
-    font: Inter 23 400  # set current font in format <family> <size> <weight>. Every part is optional, except single number will be interpreted as size
-    text: Hello         # text that will be wrapped if needed
-    innerDirection: row # row/column instructs how children will be located
-    justify: end        # start/center/end/space-between - how children will be positioned
-    innerGap: 5         # minimal gap between children
-    padding: 10 20      # padding for children
-    borderRadius: 20    # border radii (e.g. 15 66, 10 20 30 40)
-    absolute: left      # node will be anchored to parent at desired position
-                        # with respect of parent padding, e.g.
-                        # left - at center left, right bottom - at corner,
-                        # left right - node will be stretched horizontally.
-                        # Also you can specify offset for each direction, e.g. left/-10 top/55
-    bkgImage:           # image for element background. Use local or external file starting with https://...
-    bkgImageSize: cover # cover or contain
-    forEach: Array      # name of field in user data. Node will be replicated accordingly
+sample:                 # - Any arbitrary object to test layout with expr templates.
+inner:                  # - Child nodes.
+  - size: 100% 100%     # - Size. Use absolute values, or percents.
+    bkgColor: salmon    # - Background color. Use predefined colors, or 0xaabbcc, 0xaabbccff.
+    color: black        # - Color of text. This property is inherited to all children.
+    font: Inter 23 400  # - Current font in format <family> <size> <weight>. Every part is optional,
+                        #   except single number will be interpreted as size.
+    text: Hello         # - Text that will be wrapped if needed.
+    innerDirection: row # - Values row/column instructs how children will be located.
+    justify: end        # - Values start/center/end/space-between - how children will be positioned.
+    innerGap: 5         # - Minimal gap between children.
+    padding: 10 20      # - Padding for children.
+    borderRadius: 20    # - Border radii (e.g. 15 66, 10 20 30 40).
+    absolute: left      # - Instructs how element should be anchored to parent at desired position
+                        #   with respect of parent padding, e.g.
+                        #   left - at center left, right bottom - at corner,
+                        #   left right - node will be stretched horizontally.
+                        #   Also you can specify offset for each direction, e.g. left/-10 top/55.
+    bkgImage:           # - Image for element background. Use local or external file starting with https://...
+    bkgImageSize: cover # - Values cover/contain
+    forEach: Array      # - Name of field in user data. Node will be replicated accordingly.
 ```
 
 ### Expr
