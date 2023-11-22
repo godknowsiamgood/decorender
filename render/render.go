@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"github.com/disintegration/imaging"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
@@ -143,24 +144,26 @@ func getLocalLeftTop(parentNode *layout.Node, childNode *layout.Node) (float64, 
 	return left, top
 }
 
-func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top float64) {
+func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top float64) error {
 	if n.Props.BkgColor.A > 0 {
 		drawRoundedRect(cache, dst, alphaPremultiply(n.Props.BkgColor), left, top, n.Size.W, n.Size.H, n.Props.BorderRadius)
 	}
 
 	if n.Image != "" {
-		scaledAndCroppedImage := getScaledImage(cache, n.Image, n.Size.W, n.Size.H, n.Props.BkgImageSize)
-		if scaledAndCroppedImage != nil {
-			bounds := scaledAndCroppedImage.Bounds()
-			if n.Props.BorderRadius.HasValues() {
-				utils.UseTempImage(bounds.Dx(), bounds.Dy(), func(tempImage *image.RGBA) {
-					copyImage(tempImage, scaledAndCroppedImage)
-					applyBorderRadius(cache, tempImage, n.Props.BorderRadius)
-					draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
-				})
-			} else {
-				draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), scaledAndCroppedImage, image.Point{}, draw.Over)
-			}
+		scaledAndCroppedImage, err := getScaledImage(cache, n.Image, n.Size.W, n.Size.H, n.Props.BkgImageSize)
+		if err != nil {
+			return fmt.Errorf("cant draw node image (id: %v): %w", n.Id, err)
+		}
+
+		bounds := scaledAndCroppedImage.Bounds()
+		if n.Props.BorderRadius.HasValues() {
+			utils.UseTempImage(bounds.Dx(), bounds.Dy(), func(tempImage *image.RGBA) {
+				copyImage(tempImage, scaledAndCroppedImage)
+				applyBorderRadius(cache, tempImage, n.Props.BorderRadius)
+				draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
+			})
+		} else {
+			draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), scaledAndCroppedImage, image.Point{}, draw.Over)
 		}
 	}
 
@@ -170,7 +173,11 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 		if cache.prevUsedFaceDescription == n.Props.FontDescription {
 			face = cache.prevUsedFace
 		} else {
-			face = fonts.GetFontFace(n.Props.FontDescription)
+			var err error
+			face, err = fonts.GetFontFace(n.Props.FontDescription)
+			if err != nil {
+				return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
+			}
 			cache.prevUsedFace = face
 			cache.prevUsedFaceDescription = n.Props.FontDescription
 		}
@@ -189,4 +196,6 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	if n.Props.Border.Width > 0 {
 		drawRoundedBorder(cache, dst, left, top, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
 	}
+
+	return nil
 }

@@ -2,6 +2,7 @@ package fonts
 
 import (
 	_ "embed"
+	"fmt"
 	"github.com/godknowsiamgood/decorender/parsing"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -14,6 +15,8 @@ import (
 
 //go:embed default.ttf
 var defaultFontFile []byte
+
+const DefaultFamily = "Roboto"
 
 type FaceDescription struct {
 	Family string
@@ -33,7 +36,7 @@ type cachedFontFace struct {
 var faces []cachedFontFace
 var facesMx sync.RWMutex
 
-func GetFont(fd FaceDescription) *opentype.Font {
+func GetFont(fd FaceDescription) (*opentype.Font, error) {
 	facesMx.RLock()
 	defer facesMx.RUnlock()
 
@@ -49,14 +52,20 @@ func GetFont(fd FaceDescription) *opentype.Font {
 	}
 
 	if currentFace == nil {
+		if fd.Family != DefaultFamily {
+			return nil, fmt.Errorf("font face (%v) not found", fd.Family)
+		}
 		currentFace = &faces[0] // first is the default face
 	}
 
-	return currentFace.font
+	return currentFace.font, nil
 }
 
-func GetFontFace(fd FaceDescription) font.Face {
-	f := GetFont(fd)
+func GetFontFace(fd FaceDescription) (font.Face, error) {
+	f, err := GetFont(fd)
+	if err != nil {
+		return nil, err
+	}
 
 	face, _ := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    fd.Size,
@@ -64,11 +73,14 @@ func GetFontFace(fd FaceDescription) font.Face {
 		Hinting: font.HintingFull,
 	})
 
-	return face
+	return face, nil
 }
 
 func MeasureTextWidth(text string, fd FaceDescription) float64 {
-	face := GetFontFace(fd)
+	face, err := GetFontFace(fd)
+	if err != nil {
+		return 0.0
+	}
 
 	var width float64
 
@@ -96,20 +108,24 @@ func LoadFaces(faceTemplates []parsing.FontFace) error {
 		faces = make([]cachedFontFace, 0, len(faceTemplates)+1)
 	}
 
-	loadFont(parsing.FontFace{
+	if err := loadFont(parsing.FontFace{
 		Family: "default",
 		Style:  "normal",
 		Weight: "400",
-	}, defaultFontFile)
+	}, defaultFontFile); err != nil {
+		return err
+	}
 
 	for _, ft := range faceTemplates {
-		loadFont(ft, nil)
+		if err := loadFont(ft, nil); err != nil {
+			return fmt.Errorf("failed loading font faces: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func loadFont(faceTemplate parsing.FontFace, content []byte) {
+func loadFont(faceTemplate parsing.FontFace, content []byte) error {
 	cff := cachedFontFace{}
 	if faceTemplate.Style != "" {
 		switch faceTemplate.Style {
@@ -118,21 +134,21 @@ func loadFont(faceTemplate parsing.FontFace, content []byte) {
 		case "italic":
 			cff.style = font.StyleItalic
 		default:
-			return
+			return fmt.Errorf("wrong style %v for font %v", faceTemplate.Style, faceTemplate.Family)
 		}
 	} else {
 		cff.style = font.StyleNormal
 	}
 
 	if faceTemplate.Family == "" {
-		return
+		return fmt.Errorf("font family not specified")
 	}
 	cff.family = faceTemplate.Family
 
 	if faceTemplate.Weight != "" {
 		weight, err := strconv.Atoi(faceTemplate.Weight)
 		if err != nil {
-			return
+			return fmt.Errorf("font weight not valid")
 		}
 		cff.weight = weight
 	}
@@ -146,17 +162,19 @@ func loadFont(faceTemplate parsing.FontFace, content []byte) {
 			var err error
 			content, err = os.ReadFile(faceTemplate.File)
 			if err != nil {
-				return
+				return fmt.Errorf("can't read font file %v", faceTemplate.File)
 			}
 		}
 
 		fnt, err := opentype.Parse(content)
 		if err != nil {
-			return
+			return fmt.Errorf("can't parse font file %v", faceTemplate.File)
 		}
 
 		cff.font = fnt
 
 		faces = append(faces, cff)
 	}
+
+	return nil
 }

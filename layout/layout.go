@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"fmt"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/parsing"
 	"github.com/godknowsiamgood/decorender/resources"
@@ -24,16 +25,16 @@ var nodesPool = sync.Pool{
 	},
 }
 
-func Do(pn parsing.Node, userData any) Nodes {
+func Do(pn parsing.Node, userData any) (Nodes, error) {
 	nodes := nodesPool.Get().(Nodes)
 
-	doLayoutNode(pn, &nodes, layoutPhaseContext{
+	err := doLayoutNode(pn, &nodes, layoutPhaseContext{
 		size: utils.Size{},
 		props: CalculatedProperties{
 			FontColor:  color.RGBA{A: 255},
 			LineHeight: -1,
 			FontDescription: fonts.FaceDescription{
-				Family: "Roboto",
+				Family: fonts.DefaultFamily,
 				Size:   16,
 				Weight: 400,
 				Style:  font.StyleNormal,
@@ -42,9 +43,13 @@ func Do(pn parsing.Node, userData any) Nodes {
 		level: -1,
 	}, userData, nil)
 
+	if err != nil {
+		return nil, err
+	}
+
 	root := nodes.GetRootNode()
 	if root == nil {
-		return nil
+		return nil, fmt.Errorf("no nodes to render")
 	}
 
 	if pn.GetScale() != 1.0 {
@@ -53,7 +58,7 @@ func Do(pn parsing.Node, userData any) Nodes {
 		})
 	}
 
-	return nodes
+	return nodes, nil
 }
 
 func Release(nodes Nodes) {
@@ -61,10 +66,15 @@ func Release(nodes Nodes) {
 	nodesPool.Put(nodes)
 }
 
-func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any) {
+func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any) error {
 	nodeLevel := context.level + 1
 
-	utils.RunForEach(value, utils.ReplaceWithValues(pn.ForEach, value, parentValue), func(currentValue any, iteratorValue any) {
+	forEach, err := utils.ReplaceWithValues(pn.ForEach, value, parentValue)
+	if err != nil {
+		return err
+	}
+
+	return utils.RunForEach(value, forEach, func(currentValue any, iteratorValue any) error {
 		if iteratorValue == nil {
 			iteratorValue = parentValue
 		}
@@ -93,7 +103,10 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		var text string
 		if pn.Text != "" {
-			text = utils.ReplaceWithValues(pn.Text, currentValue, iteratorValue)
+			text, err = utils.ReplaceWithValues(pn.Text, currentValue, iteratorValue)
+			if err != nil {
+				return err
+			}
 		}
 
 		from := len(*nodes)
@@ -106,7 +119,9 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			textWhitespaceWidth = spitTextToNodes(nodes, text, newContext)
 		} else {
 			for i := len(pn.Inner) - 1; i >= 0; i-- {
-				doLayoutNode(pn.Inner[i], nodes, newContext, currentValue, iteratorValue)
+				if err = doLayoutNode(pn.Inner[i], nodes, newContext, currentValue, iteratorValue); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -226,11 +241,16 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			props.Size.H = max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 
+		imageVal, err := utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue)
+		if err != nil {
+			return err
+		}
+
 		ln := Node{
 			Id:    pn.Id,
 			Size:  props.Size,
 			Props: props,
-			Image: utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue),
+			Image: imageVal,
 			Level: nodeLevel,
 		}
 
@@ -239,6 +259,8 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		}
 
 		*nodes = append(*nodes, ln)
+
+		return nil
 	})
 }
 

@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/godknowsiamgood/decorender/layout"
 	"github.com/godknowsiamgood/decorender/resources"
 	"github.com/godknowsiamgood/decorender/utils"
@@ -78,7 +79,7 @@ func applyBorderRadius(cache *Cache, src *image.RGBA, radii utils.FourValues) {
 	utils.ReleaseImage(mask)
 }
 
-func getScaledImage(cache *Cache, fileName string, w, h float64, sizeType layout.BkgImageSizeType) image.Image {
+func getScaledImage(cache *Cache, fileName string, w, h float64, sizeType layout.BkgImageSizeType) (image.Image, error) {
 	keyBuilder := cache.keysBuildersPool.Get()
 	keyBuilder.WriteString(fileName)
 	keyBuilder.WriteString(strconv.Itoa(int(w)))
@@ -92,26 +93,32 @@ func getScaledImage(cache *Cache, fileName string, w, h float64, sizeType layout
 	if cache.scaledResourceImages.Has(key) {
 		v, _ := cache.scaledResourceImages.Get(key)
 		img, _ := v.(image.Image)
-		return img
+		if img == nil {
+			return nil, fmt.Errorf("cant get image %v from cache", fileName)
+		}
+		return img, nil
 	} else {
 		imageBytes, err := resources.GetResourceContent(fileName)
-		if err == nil {
-			imgReader := bytes.NewReader(imageBytes)
-			srcImg, _, err := image.Decode(imgReader)
-			if err == nil {
-				var scaledAndCroppedImage image.Image
-				if srcImg.Bounds().Dx() == int(w) && srcImg.Bounds().Dy() == int(h) {
-					scaledAndCroppedImage = srcImg
-				} else {
-					scaledAndCroppedImage = scaleAndCropImage(srcImg, w, h, sizeType)
-				}
-				_ = cache.scaledResourceImages.SetWithExpire(key, scaledAndCroppedImage, time.Minute*5)
-				return scaledAndCroppedImage
-			}
+		if err != nil {
+			return nil, fmt.Errorf("cant get image %v: %w", fileName, err)
 		}
-	}
 
-	return nil
+		imgReader := bytes.NewReader(imageBytes)
+		srcImg, _, err := image.Decode(imgReader)
+		if err != nil {
+			return nil, fmt.Errorf("cant decode image %v: %w", fileName, err)
+		}
+
+		var scaledAndCroppedImage image.Image
+		if srcImg.Bounds().Dx() == int(w) && srcImg.Bounds().Dy() == int(h) {
+			scaledAndCroppedImage = srcImg
+		} else {
+			scaledAndCroppedImage = scaleAndCropImage(srcImg, w, h, sizeType)
+		}
+		_ = cache.scaledResourceImages.SetWithExpire(key, scaledAndCroppedImage, time.Minute*5)
+
+		return scaledAndCroppedImage, nil
+	}
 }
 
 func copyImage(dst draw.Image, src image.Image) {

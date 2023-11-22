@@ -3,45 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <title>Decorender Dev Server</title>
+
+    <style>
+        body {
+            background-color: #ececec;
+            margin: 10px;
+            padding: 0;
+        }
+
+        #img {
+            visibility: hidden;
+            display: inline-block;
+            background-image: linear-gradient(45deg, #d5d5d5 25%, transparent 25%), linear-gradient(-45deg, #d5d5d5 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d5d5d5 75%), linear-gradient(-45deg, transparent 75%, #d5d5d5 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        #img > img {
+            display: block;
+        }
+
+        #info {
+            white-space: pre-line;
+            font-family: monospace;
+            padding-top: 10px;
+            color: #444444;
+        }
+    </style>
 </head>
 <body>
-<div id="error"></div>
-<img style="display: none" src="/image"/>
+
+<div id="img">
+    <img src="/image"/>
+</div>
+<div id="info"></div>
 
 <script>
+    const imgWrap = document.querySelector('#img');
     const img = document.querySelector('img');
-    const err = document.querySelector('#error');
-let lastImageVer = 0;
-const i = setInterval(async () => {
-    try {
-        const response = await fetch('/status');
-        if (!response.ok) {
-            clearInterval(i);
-            return;
-        }
-        const data = await response.json();
-
-        img.style.display = 'none';
-        err.innerHTML = '';
-
-        if (parseInt(data.ver) == 0) {
-            err.innerHTML = 'No image rendered';
-        } else if (data.err) {
-            err.innerHTML = data.err;
-        } else {
-            img.style.display = 'block';
-            if (lastImageVer != data.ver) {
-                img.setAttribute('src', `/image?v=${data.ver}`);
-                lastImageVer = data.ver;
+    const info = document.querySelector('#info');
+    let lastImageVer = 0;
+    const i = setInterval(async () => {
+        try {
+            const response = await fetch('/status');
+            if (!response.ok) {
+                clearInterval(i);
+                return;
             }
+            const data = await response.json();
+
+            imgWrap.style.visibility = 'hidden';
+            info.innerHTML = '';
+
+            if (data.err) {
+                info.innerHTML = data.err;
+            } else if (parseInt(data.ver) == 0) {
+                info.innerHTML = 'No image rendered';
+            } else {
+                info.innerHTML = data.info;
+                imgWrap.style.visibility = 'visible';
+                if (lastImageVer != data.ver) {
+                    img.setAttribute('src', `/image?v=${data.ver}`);
+                    lastImageVer = data.ver;
+                }
+            }
+            return data;
+        } catch (e) {
+            clearInterval(i);
+            imgWrap.style.display = 'none';
+            info.innerHTML = 'Decorender dev server is not responding. Please, restart and open in new page.'
         }
-        return data;
-    } catch (e) {
-        clearInterval(i);
-        img.style.display = 'none';
-        err.innerHTML = 'Decorender dev server is not responding. Please, restart and open in new page.'
-    }
-}, 500);
+    }, 500);
 </script>
 </body>
 </html>

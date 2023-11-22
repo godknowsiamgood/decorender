@@ -2,16 +2,31 @@
 
 A library for declarative rendering on the backend. Considering that there is no goal to replicate browser rendering, a simple positioning model has been implemented.
 
-
-## Installation
-
-    go get -u github.com/godknowsiamgood/decorender
-
 ## Usage
-
+Create file `layout.yaml` with minimal content:
 ```yaml
-# Create file layout.yaml with minimal content:
 text: Hello, world!
+```
+Make sure you have Go installed
+```
+brew install go
+export PATH=$PATH:$HOME/go/bin
+```
+
+Install dev server for easy visualising your layouts
+```
+go install github.com/godknowsiamgood/decorender/cmd/decorender_server@latest
+```
+
+Start dev server. It will open page with autoreload and some useful information
+```
+decorender_server layout.yaml
+```
+
+## Usage on your backend
+
+```
+go get -u github.com/godknowsiamgood/decorender
 ```
 
 ```go

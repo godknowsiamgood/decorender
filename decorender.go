@@ -76,7 +76,10 @@ func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer, opts *
 		userData = r.root.Sample
 	}
 
-	nodes := layout.Do(r.root, userData)
+	nodes, err := layout.Do(r.root, userData)
+	if err != nil {
+		return err
+	}
 
 	root := nodes.GetRootNode()
 	if root == nil || root.Size.W < 0.1 || root.Size.H < 0.1 {

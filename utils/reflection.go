@@ -8,9 +8,14 @@ import (
 	"strings"
 )
 
-func ReplaceWithValues(str string, value any, parentValue any) string {
+func ReplaceWithValuesUnsafe(str string, value any, parentValue any) string {
+	v, _ := ReplaceWithValues(str, value, parentValue)
+	return v
+}
+
+func ReplaceWithValues(str string, value any, parentValue any) (string, error) {
 	if !strings.HasPrefix(str, "~") {
-		return str
+		return str, nil
 	}
 
 	str = strings.TrimLeft(str, "~")
@@ -18,28 +23,29 @@ func ReplaceWithValues(str string, value any, parentValue any) string {
 	result, err := expr.Eval(str, map[string]any{"value": value, "parent": parentValue})
 
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return str, err
 	}
 
 	switch result.(type) {
 	case string:
-		return result.(string)
+		return result.(string), nil
 	default:
-		return fmt.Sprintf("%v", result)
+		return fmt.Sprintf("%v", result), nil
 	}
 }
 
-func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, iteratorValue any)) {
+func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, iteratorValue any) error) error {
 	if arrayFieldName == "" {
-		cb(parentValue, nil)
-		return
+		return cb(parentValue, nil)
 	}
 
 	if num, err := strconv.Atoi(arrayFieldName); err == nil {
 		for i := 0; i < num; i++ {
-			cb(i, parentValue)
+			err = cb(i, parentValue)
+			if err != nil {
+				return err
+			}
 		}
-		return
 	}
 
 	val := reflect.ValueOf(parentValue)
@@ -48,20 +54,31 @@ func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value an
 		val = val.Elem()
 	}
 
-	if val.Kind() != reflect.Struct {
-		fmt.Println("The provided interface is not a struct")
-		return
-	}
+	var fieldVal reflect.Value
 
-	fieldVal := val.FieldByName(arrayFieldName)
+	if val.Kind() == reflect.Struct {
+		fieldVal = val.FieldByName(arrayFieldName)
+	} else if val.Kind() == reflect.Map {
+		fieldVal = val.MapIndex(reflect.ValueOf(arrayFieldName))
+		if !fieldVal.IsValid() {
+			return fmt.Errorf("forEach: key '%v' does not exist in the map %v", arrayFieldName, val)
+		}
+		fieldVal = fieldVal.Elem()
+	} else {
+		return fmt.Errorf("forEach: for field '%v' the provided interface is not a map or struct <%v>", arrayFieldName, val)
+	}
 
 	if fieldVal.IsValid() && fieldVal.Kind() == reflect.Slice {
 		for i := fieldVal.Len() - 1; i >= 0; i-- {
-			cb(fieldVal.Index(i).Interface(), fieldVal.Interface())
+			if err := cb(fieldVal.Index(i).Interface(), fieldVal.Interface()); err != nil {
+				return err
+			}
 		}
 	} else {
-		fmt.Println("The specified field is not a slice or does not exist")
+		return fmt.Errorf("forEach: specified field '%v' is not a slice or does not exist in %v", arrayFieldName, val)
 	}
+
+	return nil
 }
 
 func ScaleAllValues(data any, scale float64) {
