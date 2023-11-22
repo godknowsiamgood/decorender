@@ -11,10 +11,8 @@ func TestFull(t *testing.T) {
 	}
 
 	data := struct {
-		A            int
 		StringsSlice []string
 	}{
-		A:            44,
 		StringsSlice: []string{"one", "two", "three", "four"},
 	}
 

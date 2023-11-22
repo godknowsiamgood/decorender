@@ -292,3 +292,14 @@ inner:
             bkgColor: white
             rotate: 20
             absolute: right bottom
+
+  - inner:
+      - text: Last item should be on top
+        width: 130
+      - size: 130 30
+        bkgColor: coral
+        inner:
+          - forEach: StringsSlice
+            text: ~ value
+            bkgColor: blue
+            absolute: left top

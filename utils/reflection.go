@@ -56,7 +56,7 @@ func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value an
 	fieldVal := val.FieldByName(arrayFieldName)
 
 	if fieldVal.IsValid() && fieldVal.Kind() == reflect.Slice {
-		for i := 0; i < fieldVal.Len(); i++ {
+		for i := fieldVal.Len() - 1; i >= 0; i-- {
 			cb(fieldVal.Index(i).Interface(), fieldVal.Interface())
 		}
 	} else {
