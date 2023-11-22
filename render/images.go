@@ -100,7 +100,7 @@ func getScaledImage(cache *cache, fileName string, w, h float64, sizeType layout
 			srcImg, _, err := image.Decode(imgReader)
 			if err == nil {
 				scaledAndCroppedImage := scaleAndCropImage(srcImg, w, h, sizeType)
-				_ = cache.scaledImages.SetWithExpire(key, &scaledAndCroppedImage, time.Minute*5)
+				_ = cache.scaledImages.SetWithExpire(key, scaledAndCroppedImage, time.Minute*5)
 				return scaledAndCroppedImage
 			}
 		}
