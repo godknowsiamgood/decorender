@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
@@ -14,6 +15,9 @@ import (
 	"strconv"
 	"sync"
 )
+
+//go:embed index.html
+var indexHtml embed.FS
 
 func main() {
 	if len(os.Args) < 2 {
@@ -53,7 +57,7 @@ func main() {
 	updateRenderer()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./cmd/index.html")
+		http.FileServer(http.FS(indexHtml)).ServeHTTP(w, r)
 	})
 
 	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
