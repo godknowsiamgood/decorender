@@ -18,7 +18,7 @@ Install dev server for easy visualising your layouts
 go install github.com/godknowsiamgood/decorender/cmd/decorender_server@latest
 ```
 
-Start dev server. It will open page with autoreload and some useful information
+Start dev server. It will open page with autoreload and some useful information. If your template has templates, you can mock them with `sample` field.
 ```
 decorender_server layout.yaml
 ```
