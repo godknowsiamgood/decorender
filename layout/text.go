@@ -3,6 +3,8 @@ package layout
 import (
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/utils"
+	"golang.org/x/image/font/sfnt"
+	"golang.org/x/text/unicode/norm"
 	"strings"
 	"unicode"
 )
@@ -11,7 +13,7 @@ const hyphen = '-'
 const hyphenString = string(hyphen)
 
 func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) float64 {
-	tokens := splitText(text)
+	tokens := splitText(text, context.props.FontDescription)
 
 	var height float64
 	if context.props.LineHeight == -1 {
@@ -44,13 +46,15 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 	return fonts.MeasureTextWidth(" ", context.props.FontDescription)
 }
 
-func splitText(input string) []string {
+func splitText(input string, fd fonts.FaceDescription) []string {
 	var result []string
 	var token strings.Builder
 
 	const nonBreakable = '\u00A0'
 
 	input = strings.ReplaceAll(input, "&nbsp;", string(nonBreakable))
+
+	input = replaceSpecialCharacters(input, fd)
 
 	for _, r := range input {
 		if unicode.IsSpace(r) && r != nonBreakable {
@@ -72,4 +76,23 @@ func splitText(input string) []string {
 	}
 
 	return result
+}
+
+func replaceSpecialCharacters(src string, fd fonts.FaceDescription) string {
+	var (
+		buf    sfnt.Buffer
+		result strings.Builder
+	)
+
+	f, _ := fonts.GetFont(fd)
+
+	src = norm.NFC.String(src)
+	result.Grow(len(src))
+	for _, char := range src {
+		char = simplifyRune(char)
+		if idx, err := f.GlyphIndex(&buf, char); err == nil && idx != 0 {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
 }
