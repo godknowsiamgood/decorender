@@ -165,26 +165,24 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	}
 
 	if n.Text != "" {
-		var fontDrawer *font.Drawer
 		cache.prevUsedFaceMx.Lock()
+		var face font.Face
 		if cache.prevUsedFaceDescription == n.Props.FontDescription {
-			fontDrawer = cache.prevUsedFaceDrawer
-			fontDrawer.Dot = fixed.P(int(left), int(top+cache.prevUsedFaceOffset))
+			face = cache.prevUsedFace
 		} else {
-			face := fonts.GetFontFace(n.Props.FontDescription)
-			offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
-			fontDrawer = &font.Drawer{
-				Dst:  dst,
-				Src:  image.NewUniform(n.Props.FontColor),
-				Face: face,
-				Dot:  fixed.P(int(left), int(top+offset)),
-			}
-
+			face = fonts.GetFontFace(n.Props.FontDescription)
+			cache.prevUsedFace = face
 			cache.prevUsedFaceDescription = n.Props.FontDescription
-			cache.prevUsedFaceDrawer = fontDrawer
-			cache.prevUsedFaceOffset = offset
+		}
+		offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
+		fontDrawer := font.Drawer{
+			Dst:  dst,
+			Face: face,
+			Dot:  fixed.P(int(left), int(top+offset)),
+			Src:  image.NewUniform(n.Props.FontColor),
 		}
 		cache.prevUsedFaceMx.Unlock()
+
 		fontDrawer.DrawString(n.Text)
 	}
 

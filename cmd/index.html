@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Decorender Dev Server</title>
+</head>
+<body>
+<style>
+
+</style>
+
+<div id="error"></div>
+<img style="display: none" src="/image"/>
+
+<script>
+    const img = document.querySelector('img');
+    const err = document.querySelector('#error');
+let lastImageVer = 0;
+const i = setInterval(async () => {
+    try {
+        const response = await fetch('/status');
+        if (!response.ok) {
+            clearInterval(i);
+            return;
+        }
+        const data = await response.json();
+
+        img.style.display = 'none';
+        err.innerHTML = '';
+
+        if (parseInt(data.ver) == 0) {
+            err.innerHTML = 'No image rendered';
+        } else if (data.err) {
+            err.innerHTML = data.err;
+        } else {
+            img.style.display = 'block';
+            if (lastImageVer != data.ver) {
+                img.setAttribute('src', `/image?v=${data.ver}`);
+                lastImageVer = data.ver;
+            }
+        }
+        return data;
+    } catch (e) {
+        clearInterval(i);
+        img.style.display = 'none';
+        err.innerHTML = 'Decorender dev server is not responding. Please, restart and open in new page.'
+    }
+}, 500);
+</script>
+</body>
+</html>

@@ -14,20 +14,13 @@ import (
 
 type Cache struct {
 	prevUsedFaceDescription fonts.FaceDescription
-	prevUsedFaceOffset      float64
-	prevUsedFaceDrawer      *font.Drawer
+	prevUsedFace            font.Face
 	prevUsedFaceMx          sync.Mutex
 
 	scaledResourceImages gcache.Cache
 	roundedRectMasks     gcache.Cache
 
 	keysBuildersPool *builderpool.BuilderPool
-}
-
-func (c *Cache) release() {
-	c.scaledResourceImages.Purge()
-	c.prevUsedFaceDrawer = nil
-	c.roundedRectMasks.Purge()
 }
 
 func (c *Cache) addRoundedRectMask(w int, h int, radii utils.FourValues, alpha *image.Alpha) {
