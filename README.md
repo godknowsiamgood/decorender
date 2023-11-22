@@ -18,7 +18,7 @@ Install dev server for easy visualising your layouts
 go install github.com/godknowsiamgood/decorender/cmd/decorender_server@latest
 ```
 
-Start dev server. It will open page with autoreload and some useful information
+Start dev server. It will open page with autoreload and some useful information. If your template has templates, you can mock them with `sample` field.
 ```
 decorender_server layout.yaml
 ```
@@ -83,4 +83,6 @@ Almost everything is written with performance considerations in mind.
  * Work with all heavy objects (internal node tree, buffers for images, rasterizers) is done through sync.Pool.
  * A small LRU cache is used for frequently used images. Also, an LRU cache is used for frequently used masks (which, for example, are used for drawing rounded rectangles).
  * Downloaded external images are stored in the system's tmp directory and are not downloaded again upon reuse.
- * A test image on the M1 Pro is rendered in about 9ms.
+
+Take into consideration:
+ * If possible use images with exact size as will be appear in layout. Scaling is quite expensive operation.
