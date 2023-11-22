@@ -8,6 +8,7 @@ func TestFull(t *testing.T) {
 	d, err := NewRenderer("./test.yaml")
 	if err != nil {
 		t.Errorf("unexpected error while yaml parse: %v", err)
+		return
 	}
 
 	data := struct {

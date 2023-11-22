@@ -31,7 +31,7 @@ var stacksPool = sync.Pool{
 	},
 }
 
-func Do(nodes layout.Nodes, cache *Cache) *image.RGBA {
+func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 	stack := stacksPool.Get().(utils.Stack[drawState])
 
 	defer func() {
@@ -49,15 +49,25 @@ func Do(nodes layout.Nodes, cache *Cache) *image.RGBA {
 
 		// Create new destination image in case of root node and nodes that rotating
 		if state.dst == nil || math.Abs(n.Props.Rotation) > math.SmallestNonzeroFloat64 {
-			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W)), int(math.Ceil(n.Size.H)))
-			drawNode(cache, state.dst, n, 0, 0) // new destination, starting from origin point
+			// new destination and reset starting from origin point
+			// but with respect with borders, that can be outside of element
+
+			borderOffset := n.Props.Border.GetOutsetOffset()
+			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W+borderOffset*2)), int(math.Ceil(n.Size.H+borderOffset*2)))
+			err := drawNode(cache, state.dst, n, borderOffset, borderOffset)
+			if err != nil {
+				return stack[0].dst, err
+			}
 			state.pos = utils.Pos{
 				Left: n.Props.Padding.Left(),
 				Top:  n.Props.Padding.Top(),
 			}
 		} else {
 			left, top := getLocalLeftTop(state.node, n)
-			drawNode(cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
+			err := drawNode(cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
+			if err != nil {
+				return stack[0].dst, err
+			}
 
 			// Next position is world + current + current's padding
 			state.pos = utils.Pos{
@@ -73,7 +83,7 @@ func Do(nodes layout.Nodes, cache *Cache) *image.RGBA {
 
 	popupStack(&stack, 1)
 
-	return stack[0].dst
+	return stack[0].dst, nil
 }
 
 func popupStack(stack *utils.Stack[drawState], level int) {
@@ -89,8 +99,8 @@ func popupStack(stack *utils.Stack[drawState], level int) {
 				rotatedBounds := rotated.Bounds()
 
 				// rotated image has different sizes, so we have to center it
-				dx := rotatedBounds.Dx() - state.dst.Bounds().Dx()
-				dy := rotatedBounds.Dy() - state.dst.Bounds().Dy()
+				dx := rotatedBounds.Dx() - state.dst.Bounds().Dx() + int(state.node.Props.Border.GetOutsetOffset()*2)
+				dy := rotatedBounds.Dy() - state.dst.Bounds().Dy() + int(state.node.Props.Border.GetOutsetOffset()*2)
 
 				left, top := getLocalLeftTop(upperState.node, state.node)
 				bounds := image.Rect(

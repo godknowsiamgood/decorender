@@ -94,6 +94,17 @@ type Border struct {
 	Color color.RGBA
 }
 
+func (b *Border) GetOutsetOffset() float64 {
+	switch b.Type {
+	case BorderTypeOutset:
+		return b.Width
+	case BorderTypeCenter:
+		return b.Width / 2
+	default:
+		return 0
+	}
+}
+
 func GetSha256(str string) string {
 	hash := sha256.Sum256([]byte(str))
 	return hex.EncodeToString(hash[:])

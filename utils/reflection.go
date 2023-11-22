@@ -40,12 +40,13 @@ func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value an
 	}
 
 	if num, err := strconv.Atoi(arrayFieldName); err == nil {
-		for i := 0; i < num; i++ {
+		for i := num - 1; i >= 0; i-- {
 			err = cb(i, parentValue)
 			if err != nil {
 				return err
 			}
 		}
+		return nil
 	}
 
 	val := reflect.ValueOf(parentValue)

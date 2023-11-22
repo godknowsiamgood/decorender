@@ -86,7 +86,11 @@ func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer, opts *
 		return NothingToRenderErr
 	}
 
-	dst := render.Do(nodes, r.renderCache)
+	dst, err := render.Do(nodes, r.renderCache)
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		utils.ReleaseImage(dst)
 	}()

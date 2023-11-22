@@ -17,7 +17,7 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 
 	var height float64
 	if context.props.LineHeight == -1 {
-		height = float64(context.props.FontDescription.Size) * 1.3
+		height = float64(context.props.FontDescription.Size) * 1.2
 	} else {
 		height = context.props.LineHeight
 	}

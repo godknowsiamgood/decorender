@@ -234,7 +234,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				rowWidth, _ := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
 				props.Size.W = math.Max(props.Size.W, rowWidth)
 			})
-			props.Size.W = math.Max(0, props.Size.W+props.Padding.Right()+props.Padding.Bottom())
+			props.Size.W = math.Max(0, props.Size.W+props.Padding.Left()+props.Padding.Right())
 		}
 
 		if props.Size.H == -1 {
