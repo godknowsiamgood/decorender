@@ -8,10 +8,12 @@ import (
 	"github.com/godknowsiamgood/decorender/parsing"
 	"github.com/godknowsiamgood/decorender/render"
 	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +30,7 @@ const (
 
 type Options struct {
 	UseSample bool
+	Quality   float64
 }
 
 type Renderer struct {
@@ -93,7 +96,9 @@ func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer, opts *
 	case EncodeFormatPNG:
 		return png.Encode(w, dst)
 	case EncodeFormatJPG:
-		return jpeg.Encode(w, dst, &jpeg.Options{Quality: 95})
+		return jpeg.Encode(w, dst, &jpeg.Options{
+			Quality: lo.Ternary(opts == nil || opts.Quality < math.SmallestNonzeroFloat64, 95, int(100*opts.Quality)),
+		})
 	}
 
 	return nil
