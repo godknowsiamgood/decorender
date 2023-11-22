@@ -1,6 +1,8 @@
 # Decorender
 
 A library for declarative rendering on the backend. Considering that there is no goal to replicate browser rendering, a simple positioning model has been implemented.
+![image](https://github.com/godknowsiamgood/decorender/assets/5710885/6b6536a6-b208-4abb-ade1-70b613075695)
+
 
 ## Usage
 Create file `layout.yaml` with minimal content:
