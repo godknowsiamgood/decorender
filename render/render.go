@@ -30,14 +30,12 @@ var stacksPool = sync.Pool{
 	},
 }
 
-func Do(nodes layout.Nodes) *image.RGBA {
-	cache := newCache()
+func Do(nodes layout.Nodes, cache *Cache) *image.RGBA {
 	stack := stacksPool.Get().(utils.Stack[drawState])
 
 	defer func() {
 		stack = stack[0:0]
 		stacksPool.Put(stack)
-		cache.release()
 	}()
 
 	// last node in slice is a root, since in recursive layout phase it was added in very last step
@@ -51,14 +49,14 @@ func Do(nodes layout.Nodes) *image.RGBA {
 		// Create new destination image in case of root node and nodes that rotating
 		if state.dst == nil || math.Abs(n.Props.Rotation) > math.SmallestNonzeroFloat64 {
 			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W)), int(math.Ceil(n.Size.H)))
-			drawNode(&cache, state.dst, n, 0, 0) // new destination, starting from origin point
+			drawNode(cache, state.dst, n, 0, 0) // new destination, starting from origin point
 			state.pos = utils.Pos{
 				Left: n.Props.Padding.Left(),
 				Top:  n.Props.Padding.Top(),
 			}
 		} else {
 			left, top := getLocalLeftTop(state.node, n)
-			drawNode(&cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
+			drawNode(cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
 
 			// Next position is world + current + current's padding
 			state.pos = utils.Pos{
@@ -145,7 +143,7 @@ func getLocalLeftTop(parentNode *layout.Node, childNode *layout.Node) (float64, 
 	return left, top
 }
 
-func drawNode(cache *cache, dst *image.RGBA, n *layout.Node, left float64, top float64) {
+func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top float64) {
 	if n.Props.BkgColor.A > 0 {
 		drawRoundedRect(cache, dst, alphaPremultiply(n.Props.BkgColor), left, top, n.Size.W, n.Size.H, n.Props.BorderRadius)
 	}

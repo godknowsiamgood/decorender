@@ -34,7 +34,8 @@ type Options struct {
 }
 
 type Renderer struct {
-	root parsing.Node
+	root        parsing.Node
+	renderCache *render.Cache
 }
 
 func NewRenderer(yamlFileName string) (*Renderer, error) {
@@ -59,7 +60,8 @@ func NewRenderer(yamlFileName string) (*Renderer, error) {
 	root = parsing.KeepDebugNodes(root)
 
 	renderer := &Renderer{
-		root: root,
+		root:        root,
+		renderCache: render.NewCache(),
 	}
 
 	if err = fonts.LoadFaces(root.FontFaces); err != nil {
@@ -81,7 +83,7 @@ func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer, opts *
 		return NothingToRenderErr
 	}
 
-	dst := render.Do(nodes)
+	dst := render.Do(nodes, r.renderCache)
 	defer func() {
 		utils.ReleaseImage(dst)
 	}()

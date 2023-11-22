@@ -59,6 +59,12 @@ func ReleaseImage(img image.Image) {
 		}
 		res.Pix = res.Pix[0:0]
 		imagesBufPool.Put(res.Pix)
+	case *image.NRGBA:
+		if len(res.Pix) == 0 {
+			return
+		}
+		res.Pix = res.Pix[0:0]
+		imagesBufPool.Put(res.Pix)
 	}
 }
 

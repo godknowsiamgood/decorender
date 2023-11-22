@@ -26,7 +26,7 @@ func alphaPremultiply(c color.RGBA) color.RGBA {
 	}
 }
 
-func drawRoundedBorder(cache *cache, dst *image.RGBA, x, y, w, h float64, radii utils.FourValues, border utils.Border) {
+func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii utils.FourValues, border utils.Border) {
 	if border.Width < 0.0001 || border.Color.A == 0 {
 		return
 	}
@@ -94,7 +94,7 @@ func drawRoundedBorder(cache *cache, dst *image.RGBA, x, y, w, h float64, radii 
 	utils.ReleaseImage(innerImage)
 }
 
-func drawRoundedRect(cache *cache, dst draw.Image, c color.Color, x, y, w, h float64, radii utils.FourValues) {
+func drawRoundedRect(cache *Cache, dst draw.Image, c color.Color, x, y, w, h float64, radii utils.FourValues) {
 	if !radii.HasValues() {
 		draw.Draw(dst, image.Rect(int(x), int(y), int(x+w), int(y+h)), image.NewUniform(c), image.Point{}, draw.Over)
 		return
@@ -146,7 +146,7 @@ func drawRoundedRect(cache *cache, dst draw.Image, c color.Color, x, y, w, h flo
 
 		r.ClosePath()
 
-		mask = utils.NewAlphaImageFromPool(int(w), int(h))
+		mask = image.NewAlpha(image.Rect(0, 0, int(w), int(h)))
 		r.Draw(mask, mask.Bounds(), image.NewUniform(color.Alpha{A: 255}), image.Point{})
 
 		rasterizerPool.Put(r)

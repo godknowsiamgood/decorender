@@ -33,7 +33,7 @@ func scaleAndCropImage(src image.Image, w, h float64, sizeType layout.BkgImageSi
 		scaledImg = utils.NewRGBAImageFromPool(int(w), int(h))
 
 		dstRect := image.Rect(int((w-newWidth)/2), int((h-newHeight)/2), int((w+newWidth)/2), int((h+newHeight)/2))
-		draw.CatmullRom.Scale(scaledImg, dstRect, src, src.Bounds(), draw.Over, nil)
+		draw.BiLinear.Scale(scaledImg, dstRect, src, src.Bounds(), draw.Over, nil)
 	} else {
 		srcX, srcY, srcW, srcH := 0, 0, imgWidth, imgHeight
 
@@ -46,13 +46,13 @@ func scaleAndCropImage(src image.Image, w, h float64, sizeType layout.BkgImageSi
 		}
 
 		scaledImg = utils.NewRGBAImageFromPool(int(w), int(h))
-		draw.CatmullRom.Scale(scaledImg, scaledImg.Bounds(), src, image.Rect(srcX, srcY, srcX+srcW, srcY+srcH), draw.Over, nil)
+		draw.BiLinear.Scale(scaledImg, scaledImg.Bounds(), src, image.Rect(srcX, srcY, srcX+srcW, srcY+srcH), draw.Over, nil)
 	}
 
 	return scaledImg
 }
 
-func applyBorderRadius(cache *cache, src *image.RGBA, radii utils.FourValues) {
+func applyBorderRadius(cache *Cache, src *image.RGBA, radii utils.FourValues) {
 	if !radii.HasValues() {
 		return
 	}
@@ -78,7 +78,7 @@ func applyBorderRadius(cache *cache, src *image.RGBA, radii utils.FourValues) {
 	utils.ReleaseImage(mask)
 }
 
-func getScaledImage(cache *cache, fileName string, w, h float64, sizeType layout.BkgImageSizeType) *image.RGBA {
+func getScaledImage(cache *Cache, fileName string, w, h float64, sizeType layout.BkgImageSizeType) image.Image {
 	keyBuilder := cache.keysBuildersPool.Get()
 	keyBuilder.WriteString(fileName)
 	keyBuilder.WriteString(strconv.Itoa(int(w)))
@@ -89,9 +89,9 @@ func getScaledImage(cache *cache, fileName string, w, h float64, sizeType layout
 	key := keyBuilder.String()
 	cache.keysBuildersPool.Release(keyBuilder)
 
-	if cache.scaledImages.Has(key) {
-		v, _ := cache.scaledImages.Get(key)
-		img, _ := v.(*image.RGBA)
+	if cache.scaledResourceImages.Has(key) {
+		v, _ := cache.scaledResourceImages.Get(key)
+		img, _ := v.(image.Image)
 		return img
 	} else {
 		imageBytes, err := resources.GetResourceContent(fileName)
@@ -99,8 +99,13 @@ func getScaledImage(cache *cache, fileName string, w, h float64, sizeType layout
 			imgReader := bytes.NewReader(imageBytes)
 			srcImg, _, err := image.Decode(imgReader)
 			if err == nil {
-				scaledAndCroppedImage := scaleAndCropImage(srcImg, w, h, sizeType)
-				_ = cache.scaledImages.SetWithExpire(key, scaledAndCroppedImage, time.Minute*5)
+				var scaledAndCroppedImage image.Image
+				if srcImg.Bounds().Dx() == int(w) && srcImg.Bounds().Dy() == int(h) {
+					scaledAndCroppedImage = srcImg
+				} else {
+					scaledAndCroppedImage = scaleAndCropImage(srcImg, w, h, sizeType)
+				}
+				_ = cache.scaledResourceImages.SetWithExpire(key, scaledAndCroppedImage, time.Minute*5)
 				return scaledAndCroppedImage
 			}
 		}
@@ -109,8 +114,8 @@ func getScaledImage(cache *cache, fileName string, w, h float64, sizeType layout
 	return nil
 }
 
-func copyImage(dst *image.RGBA, src *image.RGBA) {
-	copy(dst.Pix, src.Pix)
+func copyImage(dst draw.Image, src image.Image) {
+	draw.Draw(dst, dst.Bounds(), src, image.Point{}, draw.Src)
 }
 
 func blendColors(sr, sg, sb, sa, dr, dg, db, da uint8) (uint8, uint8, uint8, uint8) {

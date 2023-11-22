@@ -18,7 +18,7 @@ func init() {
 }
 
 func tempLocalNameForDownloadableResource(fileName string) string {
-	if !strings.HasPrefix(fileName, "http://") && !strings.HasPrefix(fileName, "https://") {
+	if IsLocalResource(fileName) {
 		return ""
 	}
 
@@ -93,4 +93,8 @@ func GetResourceContent(fileName string) ([]byte, error) {
 	}
 
 	return os.ReadFile(fileName)
+}
+
+func IsLocalResource(fileName string) bool {
+	return !strings.HasPrefix(fileName, "http://") && !strings.HasPrefix(fileName, "https://")
 }
