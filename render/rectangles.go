@@ -40,7 +40,7 @@ func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii 
 	if border.Type == utils.BorderTypeOutset {
 		if radii.HasValues() {
 			for i := range outerRadii {
-				outerRadii[i] = max(0, outerRadii[i]+border.Width)
+				outerRadii[i] = math.Max(0, outerRadii[i]+border.Width)
 			}
 		}
 
@@ -51,7 +51,7 @@ func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii 
 	} else if border.Type == utils.BorderTypeInset {
 		if radii.HasValues() {
 			for i := range innerRadii {
-				innerRadii[i] = max(0, innerRadii[i]-border.Width)
+				innerRadii[i] = math.Max(0, innerRadii[i]-border.Width)
 			}
 		}
 		outerRect = utils.FourValues{0, 0, w, h}
@@ -59,10 +59,10 @@ func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii 
 	} else {
 		if radii.HasValues() {
 			for i := range outerRadii {
-				outerRadii[i] = max(0, outerRadii[i]+border.Width/2)
+				outerRadii[i] = math.Max(0, outerRadii[i]+border.Width/2)
 			}
 			for i := range innerRadii {
-				innerRadii[i] = max(0, innerRadii[i]-border.Width/2)
+				innerRadii[i] = math.Max(0, innerRadii[i]-border.Width/2)
 			}
 		}
 		outerRect = utils.FourValues{0, 0, w + border.Width, h + border.Width}

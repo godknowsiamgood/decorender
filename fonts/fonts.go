@@ -4,11 +4,11 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/godknowsiamgood/decorender/parsing"
+	"golang.org/x/exp/slices"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"math"
 	"os"
-	"slices"
 	"strconv"
 	"sync"
 )

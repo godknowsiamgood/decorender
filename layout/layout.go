@@ -9,6 +9,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"
+	"math"
 	"sync"
 )
 
@@ -194,7 +195,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 						cn.Pos.Left = offset
 						cn.Pos.Top = top
 						offset += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + gap
-						maxHeight = max(maxHeight, cn.Size.H)
+						maxHeight = math.Max(maxHeight, cn.Size.H)
 					})
 
 					top += maxHeight + gap
@@ -231,14 +232,14 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		if props.Size.W == -1 {
 			nodes.IterateRows(childrenNodesLevel, from, func(rowIndex int, _ *Node) {
 				rowWidth, _ := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
-				props.Size.W = max(props.Size.W, rowWidth)
+				props.Size.W = math.Max(props.Size.W, rowWidth)
 			})
-			props.Size.W = max(0, props.Size.W+props.Padding.Right()+props.Padding.Bottom())
+			props.Size.W = math.Max(0, props.Size.W+props.Padding.Right()+props.Padding.Bottom())
 		}
 
 		if props.Size.H == -1 {
 			height, _ := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
-			props.Size.H = max(0, height+props.Padding.Top()+props.Padding.Bottom())
+			props.Size.H = math.Max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 
 		imageVal, err := utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue)
@@ -276,6 +277,6 @@ func getJustifyOffsetAndGap(justifyProp string, gapProp float64, totalSize float
 		gap = (parentSize - totalSize) / float64(count+1)
 		offset = gap
 	}
-	gap = max(gap, gapProp)
+	gap = math.Max(gap, gapProp)
 	return offset, gap
 }
