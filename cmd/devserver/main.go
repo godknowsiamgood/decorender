@@ -1,4 +1,4 @@
-package devserver
+package main
 
 import (
 	"encoding/json"
