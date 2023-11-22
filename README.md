@@ -75,6 +75,7 @@ inner:                  # - Child nodes.
     bkgImageSize: cover # - Values cover/contain
     forEach: Array      # - Name of field in user data. Node will be replicated accordingly.
 ```
+See `test.yaml` and `test.png` for more examples.
 
 ### Expr
 In almost any field, you can use an expression instead of a fixed one. `github.com/antonmedv/expr` is used. In the context, there is a variable `value`, which is the current object. Inside `forEach`, there is also `parentValue`. Just start field with `~` symbol.
