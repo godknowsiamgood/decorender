@@ -328,3 +328,21 @@ inner:
             size: 20 20
             borderRadius: 3
             rotate: ~ value * 10
+
+  - inner:
+      - text: Image with borders
+        width: 80
+      - innerDirection: row
+        inner:
+        - bkgImage: ./test_img.jpeg
+          size: 40 40
+          borderRadius: 10
+        - bkgImage: ./test_img.jpeg
+          size: 40 40
+          borderRadius: 10
+          border: 5 red
+        - bkgImage: ./test_img.jpeg
+          size: 40 40
+          borderRadius: 99
+          border: 5 blue
+          rotate: -10

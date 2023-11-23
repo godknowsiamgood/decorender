@@ -94,15 +94,12 @@ func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii 
 	utils.ReleaseImage(innerImage)
 }
 
-func drawRoundedRect(cache *Cache, dst draw.Image, c color.Color, x, y, w, h float64, radii utils.FourValues) {
-	if !radii.HasValues() {
-		draw.Draw(dst, image.Rect(int(x), int(y), int(x+w), int(y+h)), image.NewUniform(c), image.Point{}, draw.Over)
-		return
-	}
+func useRoundedRectMaskImage(cache *Cache, w float64, h float64, radii utils.FourValues, onUse func(mask *image.Alpha)) {
+	cache.useRoundedMaskImage(w, h, radii, func(mask *image.Alpha) {
+		for i := range radii {
+			radii[i] = math.Min(radii[i], math.Min(w/2, h/2))
+		}
 
-	mask := cache.getRoundedRectMask(int(w), int(h), radii)
-
-	if mask == nil {
 		x32, y32, w32, h32 := float32(0.0), float32(0.0), float32(w), float32(h)
 
 		r := rasterizerPool.Get().(*vector.Rasterizer)
@@ -146,16 +143,22 @@ func drawRoundedRect(cache *Cache, dst draw.Image, c color.Color, x, y, w, h flo
 
 		r.ClosePath()
 
-		mask = image.NewAlpha(image.Rect(0, 0, int(w), int(h)))
 		r.Draw(mask, mask.Bounds(), image.NewUniform(color.Alpha{A: 255}), image.Point{})
 
 		rasterizerPool.Put(r)
+	}, onUse)
+}
+
+func drawRoundedRect(cache *Cache, dst draw.Image, c color.Color, x, y, w, h float64, radii utils.FourValues) {
+	if !radii.HasValues() { // Short path for drawing simple rectangle
+		draw.Draw(dst, image.Rect(int(x), int(y), int(x+w), int(y+h)), image.NewUniform(c), image.Point{}, draw.Over)
+		return
 	}
 
-	bounds := image.Rect(int(x), int(y), int(x+w), int(y+h))
-	draw.DrawMask(dst, bounds, &image.Uniform{C: c}, image.Point{}, mask, image.Point{}, draw.Over)
-
-	cache.addRoundedRectMask(int(w), int(h), radii, mask)
+	useRoundedRectMaskImage(cache, w, h, radii, func(mask *image.Alpha) {
+		bounds := image.Rect(int(x), int(y), int(x+w), int(y+h))
+		draw.DrawMask(dst, bounds, &image.Uniform{C: c}, image.Point{}, mask, image.Point{}, draw.Over)
+	})
 }
 
 func drawEllipticalArc(x, y, rx, ry, angle1, angle2 float64, path *vector.Rasterizer) {

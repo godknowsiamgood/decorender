@@ -160,20 +160,20 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	}
 
 	if n.Image != "" {
-		scaledAndCroppedImage, err := getScaledImage(cache, n.Image, n.Size.W, n.Size.H, n.Props.BkgImageSize)
+		err := cache.useScaledImage(n.Image, n.Size.W, n.Size.H, n.Props.BkgImageSize, func(scaledAndCroppedImage image.Image) {
+			bounds := scaledAndCroppedImage.Bounds()
+			if n.Props.BorderRadius.HasValues() {
+				utils.UseTempImage(bounds, func(tempImage *image.RGBA) {
+					copyImage(tempImage, scaledAndCroppedImage)
+					applyBorderRadius(cache, tempImage, n.Props.BorderRadius)
+					draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
+				})
+			} else {
+				draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), scaledAndCroppedImage, image.Point{}, draw.Over)
+			}
+		})
 		if err != nil {
 			return fmt.Errorf("cant draw node image (id: %v): %w", n.Id, err)
-		}
-
-		bounds := scaledAndCroppedImage.Bounds()
-		if n.Props.BorderRadius.HasValues() {
-			utils.UseTempImage(bounds.Dx(), bounds.Dy(), func(tempImage *image.RGBA) {
-				copyImage(tempImage, scaledAndCroppedImage)
-				applyBorderRadius(cache, tempImage, n.Props.BorderRadius)
-				draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
-			})
-		} else {
-			draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), scaledAndCroppedImage, image.Point{}, draw.Over)
 		}
 	}
 

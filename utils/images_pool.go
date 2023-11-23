@@ -68,8 +68,8 @@ func ReleaseImage(img image.Image) {
 	}
 }
 
-func UseTempImage(w, h int, cb func(img *image.RGBA)) {
-	img := NewRGBAImageFromPool(w, h)
+func UseTempImage(bounds image.Rectangle, cb func(img *image.RGBA)) {
+	img := NewRGBAImageFromPool(bounds.Dx(), bounds.Dy())
 	cb(img)
 	ReleaseImage(img)
 }
