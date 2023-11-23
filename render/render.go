@@ -186,6 +186,7 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 			var err error
 			face, err = fonts.GetFontFace(n.Props.FontDescription)
 			if err != nil {
+				cache.prevUsedFaceMx.Unlock()
 				return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
 			}
 			cache.prevUsedFace = face

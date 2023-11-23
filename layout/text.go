@@ -85,6 +85,9 @@ func replaceSpecialCharacters(src string, fd fonts.FaceDescription) string {
 	)
 
 	f, _ := fonts.GetFont(fd)
+	if f == nil {
+		return src
+	}
 
 	src = norm.NFC.String(src)
 	result.Grow(len(src))
