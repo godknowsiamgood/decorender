@@ -4,22 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/bluele/gcache"
-	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
 	"github.com/godknowsiamgood/decorender/resources"
 	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/nasa9084/go-builderpool"
-	"golang.org/x/image/font"
 	"image"
-	"sync"
 	"time"
 )
 
 type Cache struct {
-	prevUsedFaceDescription fonts.FaceDescription
-	prevUsedFace            font.Face
-	prevUsedFaceMx          sync.Mutex
-
 	scaledResourceImages gcache.Cache
 	roundedRectMasks     gcache.Cache
 

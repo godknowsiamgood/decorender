@@ -61,7 +61,20 @@ func GetFont(fd FaceDescription) (*opentype.Font, error) {
 	return currentFace.font, nil
 }
 
+var prevFaceCache = struct {
+	fd   FaceDescription
+	face font.Face
+	mx   sync.Mutex
+}{}
+
 func GetFontFace(fd FaceDescription) (font.Face, error) {
+	prevFaceCache.mx.Lock()
+	defer prevFaceCache.mx.Unlock()
+
+	if prevFaceCache.fd == fd {
+		return prevFaceCache.face, nil
+	}
+
 	f, err := GetFont(fd)
 	if err != nil {
 		return nil, err
@@ -72,6 +85,9 @@ func GetFontFace(fd FaceDescription) (font.Face, error) {
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
+
+	prevFaceCache.face = face
+	prevFaceCache.fd = fd
 
 	return face, nil
 }

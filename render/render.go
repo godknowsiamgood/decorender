@@ -179,7 +179,7 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	}
 
 	if n.Text != "" {
-		if err := renderText(cache, dst, n, left, top); err != nil {
+		if err := renderText(dst, n, left, top); err != nil {
 			return err
 		}
 	}
@@ -191,23 +191,12 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	return nil
 }
 
-func renderText(cache *Cache, dst draw.Image, n *layout.Node, left float64, top float64) error {
-	cache.prevUsedFaceMx.Lock()
-	defer cache.prevUsedFaceMx.Unlock()
-
-	var face font.Face
-	if cache.prevUsedFaceDescription == n.Props.FontDescription {
-		face = cache.prevUsedFace
-	} else {
-		var err error
-		face, err = fonts.GetFontFace(n.Props.FontDescription)
-		if err != nil {
-			cache.prevUsedFaceMx.Unlock()
-			return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
-		}
-		cache.prevUsedFace = face
-		cache.prevUsedFaceDescription = n.Props.FontDescription
+func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error {
+	face, err := fonts.GetFontFace(n.Props.FontDescription)
+	if err != nil {
+		return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
 	}
+
 	offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
 	pt := fixed.P(int(left), int(top+offset))
 	ptY := pt.Y
