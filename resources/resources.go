@@ -23,7 +23,7 @@ func tempLocalNameForDownloadableResource(fileName string) string {
 	}
 
 	tmpDir := os.TempDir()
-	localFileName := filepath.Join(tmpDir, utils.GetSha256(filepath.Base(fileName)))
+	localFileName := filepath.Join(tmpDir, utils.GetSha256(fileName))
 
 	return localFileName
 }

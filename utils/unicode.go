@@ -1,4 +1,4 @@
-package layout
+package utils
 
 const (
 	SPACE                   rune = 0x0020
@@ -21,7 +21,7 @@ const (
 	IdeographicSpace        rune = 0x3000
 )
 
-func simplifyRune(char rune) rune {
+func SimplifyRune(char rune) rune {
 	switch char {
 	case NNBSP:
 		return NBSP

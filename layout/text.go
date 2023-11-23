@@ -3,7 +3,6 @@ package layout
 import (
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/utils"
-	"golang.org/x/image/font/sfnt"
 	"golang.org/x/text/unicode/norm"
 	"strings"
 	"unicode"
@@ -51,10 +50,9 @@ func splitText(input string, fd fonts.FaceDescription) []string {
 	var token strings.Builder
 
 	const nonBreakable = '\u00A0'
-
 	input = strings.ReplaceAll(input, "&nbsp;", string(nonBreakable))
 
-	input = replaceSpecialCharacters(input, fd)
+	input = norm.NFC.String(input)
 
 	for _, r := range input {
 		if unicode.IsSpace(r) && r != nonBreakable {
@@ -78,24 +76,31 @@ func splitText(input string, fd fonts.FaceDescription) []string {
 	return result
 }
 
-func replaceSpecialCharacters(src string, fd fonts.FaceDescription) string {
-	var (
-		buf    sfnt.Buffer
-		result strings.Builder
-	)
+func mergeTextNodes(nodes *Nodes, level int, from int) {
+	// Little tricky method to merge texts nodes in rows into one node per row
 
-	f, _ := fonts.GetFont(fd)
-	if f == nil {
-		return src
-	}
+	var sb strings.Builder
 
-	src = norm.NFC.String(src)
-	result.Grow(len(src))
-	for _, char := range src {
-		char = simplifyRune(char)
-		if idx, err := f.GlyphIndex(&buf, char); err == nil && idx != 0 {
-			result.WriteRune(char)
-		}
-	}
-	return result.String()
+	originalFrom := from
+	index := 0
+	nodes.IterateRowsReverse(level, from, func(rowIndex int) {
+		sb.Reset()
+		var last *Node
+		nodes.IterateRow(level, from, rowIndex, func(n *Node) {
+			if last != nil && !last.TextHasHyphenAtEnd {
+				sb.WriteString(" ")
+			}
+			sb.WriteString(n.Text)
+			last = n
+			from++
+		})
+		last.Text = sb.String()
+		last.Size.W = fonts.MeasureTextWidth(last.Text, last.Props.FontDescription)
+		last.InRowIndex = 0
+
+		(*nodes)[originalFrom+index] = *last
+		index++
+	})
+
+	*nodes = (*nodes)[0 : originalFrom+index]
 }

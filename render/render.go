@@ -12,6 +12,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"strings"
 	"sync"
 )
 
@@ -178,34 +179,68 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	}
 
 	if n.Text != "" {
-		cache.prevUsedFaceMx.Lock()
-		var face font.Face
-		if cache.prevUsedFaceDescription == n.Props.FontDescription {
-			face = cache.prevUsedFace
-		} else {
-			var err error
-			face, err = fonts.GetFontFace(n.Props.FontDescription)
-			if err != nil {
-				cache.prevUsedFaceMx.Unlock()
-				return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
-			}
-			cache.prevUsedFace = face
-			cache.prevUsedFaceDescription = n.Props.FontDescription
+		if err := renderText(cache, dst, n, left, top); err != nil {
+			return err
 		}
-		offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
+	}
+
+	if n.Props.Border.Width > 0 {
+		drawRoundedBorder(cache, dst, left, top, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
+	}
+
+	return nil
+}
+
+func renderText(cache *Cache, dst draw.Image, n *layout.Node, left float64, top float64) error {
+	cache.prevUsedFaceMx.Lock()
+	defer cache.prevUsedFaceMx.Unlock()
+
+	var face font.Face
+	if cache.prevUsedFaceDescription == n.Props.FontDescription {
+		face = cache.prevUsedFace
+	} else {
+		var err error
+		face, err = fonts.GetFontFace(n.Props.FontDescription)
+		if err != nil {
+			cache.prevUsedFaceMx.Unlock()
+			return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
+		}
+		cache.prevUsedFace = face
+		cache.prevUsedFaceDescription = n.Props.FontDescription
+	}
+	offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
+	pt := fixed.P(int(left), int(top+offset))
+	ptY := pt.Y
+
+	if strings.Contains(n.Text, ":") || strings.Contains(n.Text, ";") {
+		for _, r := range n.Text {
+			r = utils.SimplifyRune(r)
+
+			// Since there is no sophisticated font rasterizer as harfbuzz
+			// we have some issues with rendering some runes, like columns
+			if r == ':' || r == ';' {
+				pt.Y = ptY - fixed.I(int(3.0*n.Props.FontDescription.Size/44))
+			} else {
+				pt.Y = ptY
+			}
+
+			dr, mask, maskPoint, advance, ok := face.Glyph(pt, r)
+			if !ok {
+				continue
+			}
+
+			draw.DrawMask(dst, dr.Bounds(), image.NewUniform(n.Props.FontColor), image.Point{}, mask, maskPoint, draw.Over)
+			pt.X += advance
+		}
+	} else {
 		fontDrawer := font.Drawer{
 			Dst:  dst,
 			Face: face,
 			Dot:  fixed.P(int(left), int(top+offset)),
 			Src:  image.NewUniform(n.Props.FontColor),
 		}
-		cache.prevUsedFaceMx.Unlock()
 
 		fontDrawer.DrawString(n.Text)
-	}
-
-	if n.Props.Border.Width > 0 {
-		drawRoundedBorder(cache, dst, left, top, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
 	}
 
 	return nil

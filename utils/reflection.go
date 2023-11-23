@@ -8,19 +8,19 @@ import (
 	"strings"
 )
 
-func ReplaceWithValuesUnsafe(str string, value any, parentValue any) string {
-	v, _ := ReplaceWithValues(str, value, parentValue)
+func ReplaceWithValuesUnsafe(str string, value any, parentValue any, valueIndex int) string {
+	v, _ := ReplaceWithValues(str, value, parentValue, valueIndex)
 	return v
 }
 
-func ReplaceWithValues(str string, value any, parentValue any) (string, error) {
+func ReplaceWithValues(str string, value any, parentValue any, valueIndex int) (string, error) {
 	if !strings.HasPrefix(str, "~") {
 		return str, nil
 	}
 
 	str = strings.TrimLeft(str, "~")
 
-	result, err := expr.Eval(str, map[string]any{"value": value, "parent": parentValue})
+	result, err := expr.Eval(str, map[string]any{"value": value, "parent": parentValue, "index": valueIndex})
 
 	if err != nil {
 		return str, err
@@ -34,14 +34,14 @@ func ReplaceWithValues(str string, value any, parentValue any) (string, error) {
 	}
 }
 
-func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, iteratorValue any) error) error {
+func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, parentValue any, index int) error) error {
 	if arrayFieldName == "" {
-		return cb(parentValue, nil)
+		return cb(parentValue, nil, 0)
 	}
 
 	if num, err := strconv.Atoi(arrayFieldName); err == nil {
 		for i := num - 1; i >= 0; i-- {
-			err = cb(i, parentValue)
+			err = cb(i, parentValue, i)
 			if err != nil {
 				return err
 			}
@@ -71,7 +71,7 @@ func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value an
 
 	if fieldVal.IsValid() && fieldVal.Kind() == reflect.Slice {
 		for i := fieldVal.Len() - 1; i >= 0; i-- {
-			if err := cb(fieldVal.Index(i).Interface(), fieldVal.Interface()); err != nil {
+			if err := cb(fieldVal.Index(i).Interface(), fieldVal.Interface(), i); err != nil {
 				return err
 			}
 		}

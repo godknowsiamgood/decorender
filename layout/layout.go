@@ -42,7 +42,7 @@ func Do(pn parsing.Node, userData any) (Nodes, error) {
 			},
 		},
 		level: -1,
-	}, userData, nil)
+	}, userData, nil, 0)
 
 	if err != nil {
 		return nil, err
@@ -67,20 +67,20 @@ func Release(nodes Nodes) {
 	nodesPool.Put(nodes)
 }
 
-func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any) error {
+func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any, currentValueIndex int) error {
 	nodeLevel := context.level + 1
 
-	forEach, err := utils.ReplaceWithValues(pn.ForEach, value, parentValue)
+	forEach, err := utils.ReplaceWithValues(pn.ForEach, value, parentValue, currentValueIndex)
 	if err != nil {
 		return err
 	}
 
-	return utils.RunForEach(value, forEach, func(currentValue any, iteratorValue any) error {
+	return utils.RunForEach(value, forEach, func(currentValue any, iteratorValue any, currentValueIndex int) error {
 		if iteratorValue == nil {
 			iteratorValue = parentValue
 		}
 
-		props := calculateProperties(pn, context, currentValue, iteratorValue)
+		props := calculateProperties(pn, context, currentValue, iteratorValue, currentValueIndex)
 
 		newContext := context
 		newContext.props = props
@@ -104,7 +104,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		var text string
 		if pn.Text != "" {
-			text, err = utils.ReplaceWithValues(pn.Text, currentValue, iteratorValue)
+			text, err = utils.ReplaceWithValues(pn.Text, currentValue, iteratorValue, currentValueIndex)
 			if err != nil {
 				return err
 			}
@@ -120,7 +120,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			textWhitespaceWidth = spitTextToNodes(nodes, text, newContext)
 		} else {
 			for i := len(pn.Inner) - 1; i >= 0; i-- {
-				if err = doLayoutNode(pn.Inner[i], nodes, newContext, currentValue, iteratorValue); err != nil {
+				if err = doLayoutNode(pn.Inner[i], nodes, newContext, currentValue, iteratorValue, currentValueIndex); err != nil {
 					return err
 				}
 			}
@@ -135,7 +135,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		isDirectionRow := props.IsChildrenDirectionRow
 
-		if childCount > 1 {
+		if childCount > 0 {
 
 			// do child wrapping
 			if isDirectionRow {
@@ -171,6 +171,10 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 					currentInRowIndex += 1
 					prevInRow = cn
 				})
+
+				if text != "" {
+					mergeTextNodes(nodes, childrenNodesLevel, from)
+				}
 			} else {
 				i := 0
 				nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
@@ -242,7 +246,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			props.Size.H = math.Max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 
-		imageVal, err := utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue)
+		imageVal, err := utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue, currentValueIndex)
 		if err != nil {
 			return err
 		}

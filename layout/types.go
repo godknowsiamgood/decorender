@@ -81,6 +81,17 @@ func (nodes Nodes) IterateRows(level int, from int, cb func(rowIndex int, firstI
 	}
 }
 
+func (nodes Nodes) IterateRowsReverse(level int, from int, cb func(rowIndex int)) {
+	rowIndex := -1
+	for i := from; i < len(nodes); i++ {
+		n := &nodes[i]
+		if level == n.Level && rowIndex != n.RowIndex {
+			rowIndex = n.RowIndex
+			cb(rowIndex)
+		}
+	}
+}
+
 func (nodes Nodes) IterateRow(level int, from int, rowIndex int, cb func(cn *Node)) {
 	for i := len(nodes) - 1; i >= from; i-- {
 		if nodes[i].Level == level && rowIndex == nodes[i].RowIndex {
