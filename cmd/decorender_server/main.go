@@ -8,6 +8,7 @@ import (
 	"github.com/godknowsiamgood/decorender"
 	"github.com/samber/lo"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -45,22 +46,27 @@ func main() {
 		info = ""
 		renderer, rendererErr = decorender.NewRenderer(layoutFileName)
 		if rendererErr == nil {
-			// warm up
-			rendererErr = renderer.Render(nil, decorender.EncodeFormatPNG, nil, &decorender.Options{UseSample: true})
+			var minTime time.Duration = math.MaxInt64
 
-			var timeWithoutEncode int64
+			for i := 0; i < 10; i++ {
+				start := time.Now()
+				rendererErr = renderer.Render(nil, decorender.EncodeFormatPNG, nil, &decorender.Options{UseSample: true})
+				dur := time.Now().Sub(start)
+				if dur < minTime {
+					minTime = dur
+				}
+
+				if rendererErr != nil || dur > time.Second*3 {
+					break
+				}
+			}
+
 			var timeWithPNGEncode int64
 			var timeWithJGPEncode int64
 
-			start := time.Now()
-			rendererErr = renderer.Render(nil, decorender.EncodeFormatPNG, nil, &decorender.Options{UseSample: true})
-			if rendererErr == nil {
-				timeWithoutEncode = time.Now().Sub(start).Milliseconds()
-			}
-
 			pngCounter := CountingWriter{}
 
-			start = time.Now()
+			start := time.Now()
 			rendererErr = renderer.Render(nil, decorender.EncodeFormatPNG, &pngCounter, &decorender.Options{UseSample: true})
 			if rendererErr == nil {
 				timeWithPNGEncode = time.Now().Sub(start).Milliseconds()
@@ -77,7 +83,7 @@ func main() {
 			if rendererErr == nil {
 				ver += 1
 				info = fmt.Sprintf("render in %.3fs, to png +%.3fs (%s), to jpg +%.3fs (%s)",
-					float64(timeWithoutEncode)/1000.0,
+					float64(minTime.Milliseconds())/1000.0,
 					float64(timeWithPNGEncode)/1000.0, bytesToHumanReadable(pngCounter.count),
 					float64(timeWithJGPEncode)/1000.0, bytesToHumanReadable(jpgCounter.count))
 			}
