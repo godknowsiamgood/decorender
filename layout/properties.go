@@ -40,7 +40,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		sz[1] = height[0]
 	}
 
-	anchors := parseAbsoluteAnchor(n.Absolute, data, parentData, currentValueIndex)
+	anchors := parseAnchors(n.Absolute, data, parentData, currentValueIndex)
 	if anchors.HasTop() && anchors.HasBottom() {
 		sz[1] = context.size.H - anchors.Top() - anchors.Bottom()
 	}
@@ -95,6 +95,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 
 	border := parseBorderProperty(utils.ReplaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex))
 
+	offsetAnchors := parseAnchors(n.Offset, data, parentData, currentValueIndex)
+
 	if n.Text != "" {
 		childrenDirection = "row"
 	}
@@ -117,10 +119,11 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		Rotation:               rotation[0],
 		BkgImageSize:           lo.Ternary(bkgImageSize == "contain", BkgImageSizeContain, BkgImageSizeCover),
 		Border:                 border,
+		Offset:                 utils.TopRightBottomLeft{offsetAnchors.Top(), offsetAnchors.Right(), offsetAnchors.Bottom(), offsetAnchors.Left()},
 	}
 }
 
-func parseAbsoluteAnchor(value string, data any, parentValue any, currentValueIndex int) (result utils.Anchors) {
+func parseAnchors(value string, data any, parentValue any, currentValueIndex int) (result utils.Anchors) {
 	value = utils.ReplaceWithValuesUnsafe(value, data, parentValue, currentValueIndex)
 	tokens := strings.Fields(value)
 	for _, token := range tokens {

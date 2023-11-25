@@ -8,6 +8,7 @@ type Node struct {
 	Width               string     `yaml:"width"`
 	Height              string     `yaml:"height"`
 	Absolute            string     `yaml:"absolute"`
+	Offset              string     `yaml:"offset"`
 	BkgColor            string     `yaml:"bkgColor"`
 	LineHeight          string     `yaml:"lineHeight"`
 	InnerDirection      string     `yaml:"innerDirection"`

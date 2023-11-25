@@ -53,6 +53,8 @@ func Do(pn parsing.Node, userData any) (Nodes, error) {
 		return nil, fmt.Errorf("no nodes to render")
 	}
 
+	applyOffsets(&nodes)
+
 	if pn.GetScale() != 1.0 {
 		nodes.IterateNodes(func(node *Node) {
 			utils.ScaleAllValues(node, pn.GetScale())
@@ -266,6 +268,13 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		*nodes = append(*nodes, ln)
 
 		return nil
+	})
+}
+
+func applyOffsets(nodes *Nodes) {
+	nodes.IterateNodes(func(node *Node) {
+		node.Pos.Left += node.Props.Offset.Left()
+		node.Pos.Top += node.Props.Offset.Top()
 	})
 }
 

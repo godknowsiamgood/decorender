@@ -32,6 +32,7 @@ type CalculatedProperties struct {
 	Rotation               float64
 	BkgImageSize           BkgImageSizeType
 	Border                 utils.Border
+	Offset                 utils.TopRightBottomLeft
 }
 
 type Node struct {
