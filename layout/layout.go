@@ -98,7 +98,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		if props.Size.H != -1 {
 			newContext.size.H = props.Size.H
 		}
-		newContext.size.H -= props.Padding.Left() + props.Padding.Bottom()
+		newContext.size.H -= props.Padding.Top() + props.Padding.Bottom()
 
 		// Retrieve child nodes
 

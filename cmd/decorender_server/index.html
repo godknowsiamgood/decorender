@@ -47,10 +47,10 @@
         try {
             const response = await fetch('/status');
             if (!response.ok) {
-                clearInterval(i);
                 return;
             }
             const data = await response.json();
+            console.log(data)
 
             imgWrap.style.visibility = 'hidden';
             info.innerHTML = '';
@@ -69,9 +69,7 @@
             }
             return data;
         } catch (e) {
-            clearInterval(i);
-            imgWrap.style.display = 'none';
-            info.innerHTML = 'Decorender dev server is not responding. Please, restart and open in new page.'
+            info.innerHTML = '<strong>Decorender dev server is not responding. Please, restart and open in new page.</strong>'
         }
     }, 500);
 </script>

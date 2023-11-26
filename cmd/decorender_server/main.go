@@ -9,6 +9,7 @@ import (
 	"github.com/samber/lo"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -35,7 +36,10 @@ func main() {
 
 	var renderer *decorender.Renderer
 	var rendererErr error
-	var ver int
+
+	rand.Seed(time.Now().UnixMilli())
+	var ver = rand.Intn(999999)
+
 	var info string
 	var mx sync.Mutex
 
