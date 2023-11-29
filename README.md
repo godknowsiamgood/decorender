@@ -35,11 +35,14 @@ go get -u github.com/godknowsiamgood/decorender
 ```go
 // Create a renderer object that reads the yaml file 
 // and initializes the necessary resources
-renderer, err := decorender.NewRenderer("./layout.yaml")
+renderer, err := decorender.NewRenderer("./layout.yaml", &decorender.Options{
+	...
+})
 
 // Then it can be used multiple times 
 // with different data and concurrent-safely.
-renderer.Render(yourData, decorender.EncodeFormatPNG, writer, &decorender.Options{})
+img, _ := renderer.Render(yourData, &decorender.RenderOptions{})
+renderer.RenderAndWrite(yourData, decorender.EncodeFormatPNG, writer, &decorender.RenderOptions{})
 renderer.RenderToFile(yourData, "result.jpg", &decorender.Options{})
 ```
 
