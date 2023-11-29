@@ -7,12 +7,15 @@ import (
 	"github.com/godknowsiamgood/decorender/layout"
 	"github.com/godknowsiamgood/decorender/parsing"
 	"github.com/godknowsiamgood/decorender/render"
+	"github.com/godknowsiamgood/decorender/resources"
 	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
+	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -28,17 +31,37 @@ const (
 	EncodeFormatJPG
 )
 
-type Options struct {
+// RenderOptions are options for particular render
+type RenderOptions struct {
+	// UseSample instructs to use sample object in yaml file.
+	// Should be used for debug purposes only or for dev server
 	UseSample bool
-	Quality   float64
+	// Quality sets quality for encoding formats that supports quality
+	Quality float64
 }
 
-type Renderer struct {
-	root        parsing.Node
-	renderCache *render.Cache
+// Options are options for Decorender instance
+type Options struct {
+	// ExternalImage used to customize default behavior
+	// how external images downloaded
+	ExternalImage resources.ExternalImage
+
+	// LocalFiles will be used to take local files
+	LocalFiles fs.FS
+
+	// When NoImageCache is true, no decoded and scaled images are kept in memory cache.
+	// Default cache is fixed size LRU.
+	NoImageCache bool
 }
 
-func NewRenderer(yamlFileName string) (*Renderer, error) {
+type Decorender struct {
+	root          parsing.Node
+	renderCache   *render.Cache
+	externalImage resources.ExternalImage
+	localFiles    fs.FS
+}
+
+func NewRenderer(yamlFileName string, opts *Options) (*Decorender, error) {
 	content, err := os.ReadFile(yamlFileName)
 	if err != nil {
 		return nil, err
@@ -59,61 +82,86 @@ func NewRenderer(yamlFileName string) (*Renderer, error) {
 
 	root = parsing.KeepDebugNodes(root)
 
-	renderer := &Renderer{
-		root:        root,
-		renderCache: render.NewCache(),
+	dr := &Decorender{
+		root: root,
 	}
 
-	if err = fonts.LoadFaces(root.FontFaces); err != nil {
+	if opts != nil && opts.ExternalImage != nil {
+		dr.externalImage = opts.ExternalImage
+	} else {
+		dr.externalImage = resources.NewDefaultExternalImage()
+	}
+
+	if opts != nil && opts.LocalFiles != nil {
+		dr.localFiles = opts.LocalFiles
+	} else {
+		dr.localFiles = os.DirFS(".")
+	}
+
+	imagesCacheSize := lo.Ternary(opts != nil && opts.NoImageCache, 0, 30)
+
+	dr.renderCache = render.NewCache(dr.externalImage, dr.localFiles, imagesCacheSize)
+
+	if err = fonts.LoadFaces(root.FontFaces, dr.localFiles); err != nil {
 		return nil, err
 	}
 
-	return renderer, nil
+	return dr, nil
 }
 
-func (r *Renderer) Render(userData any, format EncodeFormat, w io.Writer, opts *Options) error {
-	if opts != nil && opts.UseSample {
-		userData = r.root.Sample
-	}
-
-	nodes, err := layout.Do(r.root, userData)
+func (r *Decorender) RenderAndWrite(userData any, format EncodeFormat, w io.Writer, opts *RenderOptions) error {
+	dst, release, err := r.Render(userData, opts)
 	if err != nil {
 		return err
 	}
+	defer release()
 
-	root := nodes.GetRootNode()
-	if root == nil || root.Size.W < 0.1 || root.Size.H < 0.1 {
-		return NothingToRenderErr
-	}
-
-	dst, err := render.Do(nodes, r.renderCache)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		utils.ReleaseImage(dst)
-	}()
-
-	layout.Release(nodes)
-
-	if w == nil {
-		return nil
-	}
-
-	switch format {
-	case EncodeFormatPNG:
-		return png.Encode(w, dst)
-	case EncodeFormatJPG:
-		return jpeg.Encode(w, dst, &jpeg.Options{
-			Quality: lo.Ternary(opts == nil || opts.Quality < math.SmallestNonzeroFloat64, 95, int(100*opts.Quality)),
-		})
+	if w != nil {
+		switch format {
+		case EncodeFormatPNG:
+			return png.Encode(w, dst)
+		case EncodeFormatJPG:
+			return jpeg.Encode(w, dst, &jpeg.Options{
+				Quality: lo.Ternary(opts == nil || opts.Quality < math.SmallestNonzeroFloat64, 95, int(100*opts.Quality)),
+			})
+		}
 	}
 
 	return nil
 }
 
-func (r *Renderer) RenderToFile(userData any, fileName string, opts *Options) error {
+// Render renders layout to image. Images are pooled resource,
+// so make sure to call release function when you are done with image.
+func (r *Decorender) Render(userData any, opts *RenderOptions) (dst image.Image, release func(), err error) {
+	userData = lo.Ternary(opts != nil && opts.UseSample, r.root.Sample, userData)
+
+	// First phase is layout
+
+	nodes, err := layout.Do(r.root, userData, r.externalImage)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	root := nodes.GetRootNode()
+	if root == nil || root.Size.W < 0.01 || root.Size.H < 0.01 {
+		return nil, nil, NothingToRenderErr
+	}
+
+	// Second phase is render
+
+	dst, err = render.Do(nodes, r.renderCache, r.externalImage, r.localFiles)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	layout.Release(nodes)
+
+	return dst, func() {
+		utils.ReleaseImage(dst)
+	}, nil
+}
+
+func (r *Decorender) RenderToFile(userData any, fileName string, opts *RenderOptions) error {
 	var format EncodeFormat
 	switch strings.ToLower(filepath.Ext(fileName)) {
 	case ".jpg", ".jpeg":
@@ -130,7 +178,7 @@ func (r *Renderer) RenderToFile(userData any, fileName string, opts *Options) er
 	}
 	defer func() { _ = file.Close() }()
 
-	err = r.Render(userData, format, file, opts)
+	err = r.RenderAndWrite(userData, format, file, opts)
 	if err != nil {
 		return err
 	}

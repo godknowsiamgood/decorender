@@ -7,8 +7,9 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
+	"io"
+	"io/fs"
 	"math"
-	"os"
 	"strconv"
 	"sync"
 )
@@ -116,7 +117,7 @@ func GetFontFaceBaseLineOffset(face font.Face, lineHeight float64) float64 {
 	return ascent + baselineOffset
 }
 
-func LoadFaces(faceTemplates []parsing.FontFace) error {
+func LoadFaces(faceTemplates []parsing.FontFace, fs fs.FS) error {
 	facesMx.Lock()
 	defer facesMx.Unlock()
 
@@ -128,12 +129,12 @@ func LoadFaces(faceTemplates []parsing.FontFace) error {
 		Family: "default",
 		Style:  "normal",
 		Weight: "400",
-	}, defaultFontFile); err != nil {
+	}, defaultFontFile, fs); err != nil {
 		return err
 	}
 
 	for _, ft := range faceTemplates {
-		if err := loadFont(ft, nil); err != nil {
+		if err := loadFont(ft, nil, fs); err != nil {
 			return fmt.Errorf("failed loading font faces: %w", err)
 		}
 	}
@@ -141,7 +142,7 @@ func LoadFaces(faceTemplates []parsing.FontFace) error {
 	return nil
 }
 
-func loadFont(faceTemplate parsing.FontFace, content []byte) error {
+func loadFont(faceTemplate parsing.FontFace, content []byte, fs fs.FS) error {
 	cff := cachedFontFace{}
 	if faceTemplate.Style != "" {
 		switch faceTemplate.Style {
@@ -175,8 +176,11 @@ func loadFont(faceTemplate parsing.FontFace, content []byte) error {
 		return f.family == cff.family && f.style == cff.style && f.weight == cff.weight
 	}) == -1 {
 		if content == nil {
-			var err error
-			content, err = os.ReadFile(faceTemplate.File)
+			f, err := fs.Open(faceTemplate.File)
+			if err != nil {
+				return fmt.Errorf("can't open font file %v", faceTemplate.File)
+			}
+			content, err = io.ReadAll(f)
 			if err != nil {
 				return fmt.Errorf("can't read font file %v", faceTemplate.File)
 			}

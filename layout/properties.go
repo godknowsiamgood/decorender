@@ -93,7 +93,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 
 	rotation, _ := parseNValues(n.Rotation, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, true)
 
-	border := parseBorderProperty(utils.ReplaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex))
+	border, _ := parseBorderProperty(utils.ReplaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex))
 
 	offsetAnchors := parseAnchors(n.Offset, data, parentData, currentValueIndex)
 
@@ -152,17 +152,29 @@ func parseAnchors(value string, data any, parentValue any, currentValueIndex int
 	return result
 }
 
-func parseBorderProperty(value string) (res utils.Border) {
+func parseBorderProperty(value string) (res utils.Border, err error) {
 	tokens := strings.Fields(value)
+
+	var widthIsSet bool
+	var colorIsSet bool
+
 	for _, t := range tokens {
 		width, err := strconv.ParseFloat(t, 64)
 		if err == nil {
+			if widthIsSet {
+				return res, fmt.Errorf("trying to specify border width %v, but width is already set", width)
+			}
+			widthIsSet = true
 			res.Width = width
 			continue
 		}
 
 		c, err := parseColor(t)
 		if err == nil {
+			if colorIsSet {
+				return res, fmt.Errorf("trying to specify border color %v, but color is already set", c)
+			}
+			colorIsSet = true
 			res.Color = c
 			continue
 		}
@@ -174,9 +186,12 @@ func parseBorderProperty(value string) (res utils.Border) {
 			res.Type = utils.BorderTypeOutset
 		case "center":
 			res.Type = utils.BorderTypeCenter
+		default:
+			return res, fmt.Errorf("unknown token %v in border property", t)
 		}
 	}
-	return res
+
+	return res, nil
 }
 
 func prepareParsedValue(value float64, isVertical bool, unit int, parentWidth float64, parentHeight float64) float64 {

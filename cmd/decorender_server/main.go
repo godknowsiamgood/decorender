@@ -34,7 +34,7 @@ func main() {
 		return
 	}
 
-	var renderer *decorender.Renderer
+	var renderer *decorender.Decorender
 	var rendererErr error
 
 	rand.Seed(time.Now().UnixMilli())
@@ -48,13 +48,13 @@ func main() {
 		defer mx.Unlock()
 
 		info = ""
-		renderer, rendererErr = decorender.NewRenderer(layoutFileName)
+		renderer, rendererErr = decorender.NewRenderer(layoutFileName, nil)
 		if rendererErr == nil {
 			var minTime time.Duration = math.MaxInt64
 
 			for i := 0; i < 10; i++ {
 				start := time.Now()
-				rendererErr = renderer.Render(nil, decorender.EncodeFormatPNG, nil, &decorender.Options{UseSample: true})
+				rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatPNG, nil, &decorender.RenderOptions{UseSample: true})
 				dur := time.Now().Sub(start)
 				if dur < minTime {
 					minTime = dur
@@ -71,7 +71,7 @@ func main() {
 			pngCounter := CountingWriter{}
 
 			start := time.Now()
-			rendererErr = renderer.Render(nil, decorender.EncodeFormatPNG, &pngCounter, &decorender.Options{UseSample: true})
+			rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatPNG, &pngCounter, &decorender.RenderOptions{UseSample: true})
 			if rendererErr == nil {
 				timeWithPNGEncode = time.Now().Sub(start).Milliseconds()
 			}
@@ -79,7 +79,7 @@ func main() {
 			jpgCounter := CountingWriter{}
 
 			start = time.Now()
-			rendererErr = renderer.Render(nil, decorender.EncodeFormatJPG, &jpgCounter, &decorender.Options{UseSample: true, Quality: 0.95})
+			rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatJPG, &jpgCounter, &decorender.RenderOptions{UseSample: true, Quality: 0.95})
 			if rendererErr == nil {
 				timeWithJGPEncode = time.Now().Sub(start).Milliseconds()
 			}
@@ -128,7 +128,7 @@ func main() {
 		}
 
 		w.Header().Set("Content-Type", "image/png")
-		_ = renderer.Render(nil, decorender.EncodeFormatPNG, w, &decorender.Options{UseSample: true})
+		_ = renderer.RenderAndWrite(nil, decorender.EncodeFormatPNG, w, &decorender.RenderOptions{UseSample: true})
 	})
 
 	go func() {

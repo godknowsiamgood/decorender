@@ -172,7 +172,7 @@ inner:
         size: 150 100
         padding: 10
         inner:
-          - bkgImage: ./test_img.jpeg
+          - bkgImage: test_img.jpeg
             size: 100% 100%
 
   - inner:
@@ -193,7 +193,7 @@ inner:
         width: 120
       - size: 120 120
         inner:
-          - bkgImage: ./test_img.jpeg
+          - bkgImage: test_img.jpeg
             bkgImageSize: contain
             bkgColor: salmon
             size: 100% 100%
@@ -334,14 +334,14 @@ inner:
         width: 80
       - innerDirection: row
         inner:
-        - bkgImage: ./test_img.jpeg
+        - bkgImage: test_img.jpeg
           size: 40 40
           borderRadius: 10
-        - bkgImage: ./test_img.jpeg
+        - bkgImage: test_img.jpeg
           size: 40 40
           borderRadius: 10
           border: 5 red
-        - bkgImage: ./test_img.jpeg
+        - bkgImage: test_img.jpeg
           size: 40 40
           borderRadius: 99
           border: 5 blue

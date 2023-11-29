@@ -9,16 +9,38 @@ import (
 	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/nasa9084/go-builderpool"
 	"image"
+	"io"
+	"io/fs"
 	"time"
 )
 
+// Cache used to keep cached values through all renders
 type Cache struct {
 	scaledResourceImages gcache.Cache
 	roundedRectMasks     gcache.Cache
 
-	mx utils.ShardedMutex
+	externalImages resources.ExternalImage
+	localImages    fs.FS
 
 	keysBuildersPool *builderpool.BuilderPool
+
+	mx utils.ShardedMutex
+}
+
+func NewCache(externalImages resources.ExternalImage, localImages fs.FS, imageCacheSize int) *Cache {
+	cache := &Cache{
+		roundedRectMasks: gcache.New(30).LRU().Build(),
+		keysBuildersPool: builderpool.New(),
+
+		externalImages: externalImages,
+		localImages:    localImages,
+	}
+
+	if imageCacheSize > 0 {
+		cache.scaledResourceImages = gcache.New(imageCacheSize).LRU().Build()
+	}
+
+	return cache
 }
 
 func (c *Cache) useRoundedMaskImage(w float64, h float64, radii utils.FourValues, onCreate func(mask *image.Alpha), onUse func(mask *image.Alpha)) {
@@ -47,11 +69,15 @@ func (c *Cache) useScaledImage(fileName string, w, h float64, sizeType layout.Bk
 	c.mx.LockInt(key)
 	defer c.mx.UnlockInt(key)
 
-	v, _ := c.scaledResourceImages.Get(key)
-	img, _ := v.(image.Image)
+	var img image.Image
+
+	if c.scaledResourceImages != nil {
+		v, _ := c.scaledResourceImages.Get(key)
+		img, _ = v.(image.Image)
+	}
 
 	if img == nil {
-		imageBytes, err := resources.GetResourceContent(fileName)
+		imageBytes, err := c.getResourceContent(fileName)
 		if err != nil {
 			return fmt.Errorf("cant get image %v: %w", fileName, err)
 		}
@@ -71,15 +97,25 @@ func (c *Cache) useScaledImage(fileName string, w, h float64, sizeType layout.Bk
 
 	onUse(img)
 
-	_ = c.scaledResourceImages.SetWithExpire(key, img, time.Minute*15)
+	if c.scaledResourceImages != nil {
+		_ = c.scaledResourceImages.SetWithExpire(key, img, time.Minute*15)
+	}
 
 	return nil
 }
 
-func NewCache() *Cache {
-	return &Cache{
-		scaledResourceImages: gcache.New(30).LRU().Build(),
-		roundedRectMasks:     gcache.New(30).LRU().Build(),
-		keysBuildersPool:     builderpool.New(),
+func (c *Cache) getResourceContent(fileName string) ([]byte, error) {
+	if resources.IsLocalResource(fileName) {
+		f, err := c.localImages.Open(fileName)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			_ = f.Close()
+		}()
+
+		return io.ReadAll(f)
+	} else {
+		return c.externalImages.Get(fileName)
 	}
 }

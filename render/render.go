@@ -5,12 +5,14 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
+	"github.com/godknowsiamgood/decorender/resources"
 	"github.com/godknowsiamgood/decorender/utils"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 	"image"
 	"image/color"
+	"io/fs"
 	"math"
 	"strings"
 	"sync"
@@ -26,19 +28,42 @@ type drawState struct {
 	node  *layout.Node
 }
 
+type drawContext struct {
+	cache         *Cache
+	externalImage resources.ExternalImage
+	localImage    fs.FS
+}
+
 var stacksPool = sync.Pool{
 	New: func() any {
 		return make(utils.Stack[drawState], 0, 10)
 	},
 }
 
-func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
+func Do(nodes layout.Nodes, cache *Cache, externalImages resources.ExternalImage, localImages fs.FS) (*image.RGBA, error) {
 	stack := stacksPool.Get().(utils.Stack[drawState])
 
 	defer func() {
+		var topDst image.Image
+		for i := range stack {
+			// Release images in stack, but keep top one - it will be released in caller
+			if i == 0 {
+				topDst = stack[i].dst
+			}
+			if topDst != stack[i].dst {
+				utils.ReleaseImage(stack[i].dst)
+			}
+		}
+
 		stack = stack[0:0]
 		stacksPool.Put(stack)
 	}()
+
+	dc := drawContext{
+		cache:         cache,
+		externalImage: externalImages,
+		localImage:    localImages,
+	}
 
 	// last node in slice is a root, since in recursive layout phase it was added in very last step
 	for i := len(nodes) - 1; i >= 0; i-- {
@@ -55,7 +80,7 @@ func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 
 			borderOffset := n.Props.Border.GetOutsetOffset()
 			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W+borderOffset*2)), int(math.Ceil(n.Size.H+borderOffset*2)))
-			err := drawNode(cache, state.dst, n, borderOffset, borderOffset)
+			err := drawNode(state.dst, n, borderOffset, borderOffset, dc)
 			if err != nil {
 				return stack[0].dst, err
 			}
@@ -65,7 +90,7 @@ func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 			}
 		} else {
 			left, top := getLocalLeftTop(state.node, n)
-			err := drawNode(cache, state.dst, n, state.pos.Left+left, state.pos.Top+top)
+			err := drawNode(state.dst, n, state.pos.Left+left, state.pos.Top+top, dc)
 			if err != nil {
 				return stack[0].dst, err
 			}
@@ -155,18 +180,18 @@ func getLocalLeftTop(parentNode *layout.Node, childNode *layout.Node) (float64, 
 	return left, top
 }
 
-func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top float64) error {
+func drawNode(dst *image.RGBA, n *layout.Node, left float64, top float64, dc drawContext) error {
 	if n.Props.BkgColor.A > 0 {
-		drawRoundedRect(cache, dst, alphaPremultiply(n.Props.BkgColor), left, top, n.Size.W, n.Size.H, n.Props.BorderRadius)
+		drawRoundedRect(dc.cache, dst, alphaPremultiply(n.Props.BkgColor), left, top, n.Size.W, n.Size.H, n.Props.BorderRadius)
 	}
 
 	if n.Image != "" {
-		err := cache.useScaledImage(n.Image, n.Size.W, n.Size.H, n.Props.BkgImageSize, func(scaledAndCroppedImage image.Image) {
+		err := dc.cache.useScaledImage(n.Image, n.Size.W, n.Size.H, n.Props.BkgImageSize, func(scaledAndCroppedImage image.Image) {
 			bounds := scaledAndCroppedImage.Bounds()
 			if n.Props.BorderRadius.HasValues() {
 				utils.UseTempImage(bounds, func(tempImage *image.RGBA) {
 					copyImage(tempImage, scaledAndCroppedImage)
-					applyBorderRadius(cache, tempImage, n.Props.BorderRadius)
+					applyBorderRadius(dc.cache, tempImage, n.Props.BorderRadius)
 					draw.Draw(dst, image.Rect(int(left), int(top), int(left)+bounds.Dx(), int(top)+bounds.Dy()), tempImage, image.Point{}, draw.Over)
 				})
 			} else {
@@ -185,7 +210,7 @@ func drawNode(cache *Cache, dst *image.RGBA, n *layout.Node, left float64, top f
 	}
 
 	if n.Props.Border.Width > 0 {
-		drawRoundedBorder(cache, dst, left, top, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
+		drawRoundedBorder(dc.cache, dst, left, top, n.Size.W, n.Size.H, n.Props.BorderRadius, n.Props.Border)
 	}
 
 	return nil

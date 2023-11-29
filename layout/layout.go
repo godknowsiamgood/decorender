@@ -18,6 +18,8 @@ type layoutPhaseContext struct {
 	pos   utils.Pos
 	props CalculatedProperties
 	level int
+
+	externalImage resources.ExternalImage
 }
 
 var nodesPool = sync.Pool{
@@ -26,7 +28,7 @@ var nodesPool = sync.Pool{
 	},
 }
 
-func Do(pn parsing.Node, userData any) (Nodes, error) {
+func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage) (Nodes, error) {
 	nodes := nodesPool.Get().(Nodes)
 
 	err := doLayoutNode(pn, &nodes, layoutPhaseContext{
@@ -41,7 +43,8 @@ func Do(pn parsing.Node, userData any) (Nodes, error) {
 				Style:  font.StyleNormal,
 			},
 		},
-		level: -1,
+		level:         -1,
+		externalImage: externalImage,
 	}, userData, nil, 0)
 
 	if err != nil {
@@ -262,7 +265,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		}
 
 		if ln.Image != "" {
-			resources.PrefetchResource(ln.Image)
+			context.externalImage.Prefetch(ln.Image)
 		}
 
 		*nodes = append(*nodes, ln)

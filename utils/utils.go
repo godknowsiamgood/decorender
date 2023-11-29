@@ -83,8 +83,8 @@ func (a Anchors) HasBottom() bool {
 type BorderType int
 
 const (
-	BorderTypeCenter BorderType = iota
-	BorderTypeOutset
+	BorderTypeOutset BorderType = iota
+	BorderTypeCenter
 	BorderTypeInset
 )
 
