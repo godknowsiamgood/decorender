@@ -8,19 +8,11 @@ const shardedMutexCount = 64
 
 type ShardedMutex [shardedMutexCount]sync.Mutex
 
-func (sm *ShardedMutex) Lock(key string) {
-	(*sm)[HashDJB2(key)%shardedMutexCount].Lock()
-}
-
-func (sm *ShardedMutex) LockInt(v uint) {
+func (sm *ShardedMutex) Lock(v uint) {
 	(*sm)[v%shardedMutexCount].Lock()
 }
 
-func (sm *ShardedMutex) Unlock(key string) {
-	(*sm)[HashDJB2(key)%shardedMutexCount].Unlock()
-}
-
-func (sm *ShardedMutex) UnlockInt(v uint) {
+func (sm *ShardedMutex) Unlock(v uint) {
 	(*sm)[v%shardedMutexCount].Unlock()
 }
 

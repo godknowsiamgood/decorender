@@ -46,8 +46,8 @@ func NewCache(externalImages resources.ExternalImage, localImages fs.FS, imageCa
 func (c *Cache) useRoundedMaskImage(w float64, h float64, radii utils.FourValues, onCreate func(mask *image.Alpha), onUse func(mask *image.Alpha)) {
 	key := utils.HashDJB2Num(w, h, radii[0], radii[1], radii[2], radii[3])
 
-	c.mx.LockInt(key)
-	defer c.mx.UnlockInt(key)
+	c.mx.Lock(key)
+	defer c.mx.Unlock(key)
 
 	img, _ := c.roundedRectMasks.Get(key)
 	var alphaImg *image.Alpha
@@ -66,8 +66,8 @@ func (c *Cache) useRoundedMaskImage(w float64, h float64, radii utils.FourValues
 func (c *Cache) useScaledImage(fileName string, w, h float64, sizeType layout.BkgImageSizeType, onUse func(img image.Image)) error {
 	key := utils.HashDJB2(fileName) + utils.HashDJB2Num(w, h, float64(sizeType))
 
-	c.mx.LockInt(key)
-	defer c.mx.UnlockInt(key)
+	c.mx.Lock(key)
+	defer c.mx.Unlock(key)
 
 	var img image.Image
 

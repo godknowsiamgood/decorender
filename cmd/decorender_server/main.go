@@ -52,7 +52,7 @@ func main() {
 		if rendererErr == nil {
 			var minTime time.Duration = math.MaxInt64
 
-			for i := 0; i < 10; i++ {
+			for i := 0; i < 5; i++ {
 				start := time.Now()
 				rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatPNG, nil, &decorender.RenderOptions{UseSample: true})
 				dur := time.Now().Sub(start)
@@ -60,7 +60,7 @@ func main() {
 					minTime = dur
 				}
 
-				if rendererErr != nil || dur > time.Second*3 {
+				if rendererErr != nil || dur > time.Second*2 {
 					break
 				}
 			}
