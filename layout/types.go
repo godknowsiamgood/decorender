@@ -35,6 +35,7 @@ type CalculatedProperties struct {
 	Offset                 utils.TopRightBottomLeft
 }
 
+// Node represents positioned and prepared element to render after layout phase
 type Node struct {
 	Id string
 
@@ -55,6 +56,9 @@ func (n *Node) HasAnchors() bool {
 	return n.Props.Anchors.Has()
 }
 
+// Nodes represents hierarchy for nodes. It uses linear slice for efficiency.
+// E.g. if A has children B and C, and C has child D
+// they will be located in this slice in order DCBA
 type Nodes []Node
 
 func (nodes Nodes) GetRootNode() *Node {
@@ -71,6 +75,9 @@ func (nodes Nodes) IterateNodes(cb func(node *Node)) {
 	}
 }
 
+// IterateRows here and below are helpers to iterate through children.
+// level is level of children and from is a hint where iteration should end.
+// Iteration can be performed only for children that added recently.
 func (nodes Nodes) IterateRows(level int, from int, cb func(rowIndex int, firstInRowNode *Node)) {
 	rowIndex := -1
 	for i := len(nodes) - 1; i >= from; i-- {

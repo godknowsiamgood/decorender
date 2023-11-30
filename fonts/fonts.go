@@ -26,7 +26,7 @@ type FaceDescription struct {
 	Style  font.Style
 }
 
-type cachedFontFace struct {
+type loadedFontFace struct {
 	family string
 	style  font.Style
 	weight int
@@ -34,16 +34,17 @@ type cachedFontFace struct {
 	uri    string
 }
 
-var faces []cachedFontFace
-var facesMx sync.RWMutex
+var loadedFaces []loadedFontFace
+var loadedFacesMx sync.RWMutex
 
+// GetFont returns font nearest by it`s weight
 func GetFont(fd FaceDescription) (*opentype.Font, error) {
-	facesMx.RLock()
-	defer facesMx.RUnlock()
+	loadedFacesMx.RLock()
+	defer loadedFacesMx.RUnlock()
 
 	minWeightDiff := 9999999.0
-	var currentFace *cachedFontFace
-	for _, f := range faces {
+	var currentFace *loadedFontFace
+	for _, f := range loadedFaces {
 		f := f
 		weightDiff := math.Abs(float64(f.weight - fd.Weight))
 		if weightDiff < minWeightDiff && fd.Family == f.family && fd.Style == f.style {
@@ -56,12 +57,13 @@ func GetFont(fd FaceDescription) (*opentype.Font, error) {
 		if fd.Family != DefaultFamily {
 			return nil, fmt.Errorf("font face (%v) not found", fd.Family)
 		}
-		currentFace = &faces[0] // first is the default face
+		currentFace = &loadedFaces[0] // first is the default face
 	}
 
 	return currentFace.font, nil
 }
 
+// Little dumb way to cache face for GetFontFace
 var prevFaceCache = struct {
 	fd   FaceDescription
 	face font.Face
@@ -118,11 +120,11 @@ func GetFontFaceBaseLineOffset(face font.Face, lineHeight float64) float64 {
 }
 
 func LoadFaces(faceTemplates []parsing.FontFace, fs fs.FS) error {
-	facesMx.Lock()
-	defer facesMx.Unlock()
+	loadedFacesMx.Lock()
+	defer loadedFacesMx.Unlock()
 
-	if faces == nil {
-		faces = make([]cachedFontFace, 0, len(faceTemplates)+1)
+	if loadedFaces == nil {
+		loadedFaces = make([]loadedFontFace, 0, len(faceTemplates)+1)
 	}
 
 	if err := loadFont(parsing.FontFace{
@@ -143,7 +145,7 @@ func LoadFaces(faceTemplates []parsing.FontFace, fs fs.FS) error {
 }
 
 func loadFont(faceTemplate parsing.FontFace, content []byte, fs fs.FS) error {
-	cff := cachedFontFace{}
+	cff := loadedFontFace{}
 	if faceTemplate.Style != "" {
 		switch faceTemplate.Style {
 		case "normal":
@@ -172,7 +174,7 @@ func loadFont(faceTemplate parsing.FontFace, content []byte, fs fs.FS) error {
 
 	cff.uri = faceTemplate.File
 
-	if slices.IndexFunc(faces, func(f cachedFontFace) bool {
+	if slices.IndexFunc(loadedFaces, func(f loadedFontFace) bool {
 		return f.family == cff.family && f.style == cff.style && f.weight == cff.weight
 	}) == -1 {
 		if content == nil {
@@ -193,7 +195,7 @@ func loadFont(faceTemplate parsing.FontFace, content []byte, fs fs.FS) error {
 
 		cff.font = fnt
 
-		faces = append(faces, cff)
+		loadedFaces = append(loadedFaces, cff)
 	}
 
 	return nil

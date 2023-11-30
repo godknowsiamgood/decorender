@@ -12,7 +12,7 @@ const hyphen = '-'
 const hyphenString = string(hyphen)
 
 func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) float64 {
-	tokens := splitText(text, context.props.FontDescription)
+	tokens := splitText(text)
 
 	var height float64
 	if context.props.LineHeight == -1 {
@@ -45,7 +45,7 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 	return fonts.MeasureTextWidth(" ", context.props.FontDescription)
 }
 
-func splitText(input string, fd fonts.FaceDescription) []string {
+func splitText(input string) []string {
 	var result []string
 	var token strings.Builder
 
@@ -76,9 +76,8 @@ func splitText(input string, fd fonts.FaceDescription) []string {
 	return result
 }
 
+// Little tricky method to merge texts nodes in rows into one node per row for optimized rendering
 func mergeTextNodes(nodes *Nodes, level int, from int) {
-	// Little tricky method to merge texts nodes in rows into one node per row
-
 	var sb strings.Builder
 
 	originalFrom := from
