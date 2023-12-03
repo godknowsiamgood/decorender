@@ -35,27 +35,6 @@ func applyAbsolutePositions(nodes *Nodes, childrenNodesLevel int, from int, prop
 			}
 		}
 
-		//if cn.Props.AbsolutePosition.HasLeft() || cn.Props.AbsolutePosition.HasRight() {
-		//	if !cn.Props.AbsolutePosition.HasTop() && !cn.Props.AbsolutePosition.HasBottom() {
-		//		top = props.Size.H/2 - cn.Size.H/2
-		//	}
-		//	if cn.Props.AbsolutePosition.HasRight() {
-		//		left = props.Size.W - cn.Size.W - cn.Props.AbsolutePosition.Right()
-		//	} else {
-		//		left = cn.Props.AbsolutePosition.Left()
-		//	}
-		//}
-		//if cn.Props.AbsolutePosition.HasTop() || cn.Props.AbsolutePosition.HasBottom() {
-		//	if !cn.Props.AbsolutePosition.HasLeft() && !cn.Props.AbsolutePosition.HasRight() {
-		//		left = props.Size.W/2 - cn.Size.W/2
-		//	}
-		//	if cn.Props.AbsolutePosition.HasBottom() {
-		//		top = props.Size.H - cn.Size.H - cn.Props.AbsolutePosition.Bottom()
-		//	} else {
-		//		top = cn.Props.AbsolutePosition.Top()
-		//	}
-		//}
-
 		cn.Pos.Left = left
 		cn.Pos.Top = top
 	})
