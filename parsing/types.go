@@ -1,6 +1,8 @@
 package parsing
 
-import "strconv"
+import (
+	"strconv"
+)
 
 type Node struct {
 	Id                  string     `yaml:"id"`

@@ -111,10 +111,10 @@ inner:
     bkgColor: white
     color: black
     inner:
-      - text: One two three four six
-      - text: One two three four six
+      - text: One two three four five six
+      - text: One two three four five six
         justify: end
-      - text: One two three four six
+      - text: One two three four five six
         justify: center
 
   # Absolute positions
@@ -266,3 +266,18 @@ inner:
         bkgColor: blue
         font: 15
         text: "~ value + ' ' + string(100 / len(parent)) + ' ' + string(findIndex(parent, # == value))"
+
+  # Absolute test
+  - bkgColor: white
+    innerDirection: row
+    size: 100 100
+    inner:
+      - width: 100
+        bkgColor: red
+        id: red
+        padding: 20
+        inner:
+          - absolute: right
+            size: 10 10
+            bkgColor: blue
+            id: abs

@@ -56,6 +56,7 @@ type Options struct {
 
 type Decorender struct {
 	root          parsing.Node
+	layoutCache   *layout.Cache
 	renderCache   *render.Cache
 	externalImage resources.ExternalImage
 	localFiles    fs.FS
@@ -100,6 +101,7 @@ func NewRenderer(yamlFileName string, opts *Options) (*Decorender, error) {
 
 	imagesCacheSize := lo.Ternary(opts != nil && opts.NoImageCache, 0, 30)
 
+	dr.layoutCache = layout.NewCache()
 	dr.renderCache = render.NewCache(dr.externalImage, dr.localFiles, imagesCacheSize)
 
 	if err = fonts.LoadFaces(root.FontFaces, dr.localFiles); err != nil {
@@ -137,7 +139,7 @@ func (r *Decorender) Render(userData any, opts *RenderOptions) (dst image.Image,
 
 	// First phase is layout
 
-	nodes, err := layout.Do(r.root, userData, r.externalImage)
+	nodes, err := layout.Do(r.root, userData, r.externalImage, r.layoutCache)
 	if err != nil {
 		return nil, nil, err
 	}

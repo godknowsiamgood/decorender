@@ -20,6 +20,7 @@ type layoutPhaseContext struct {
 	level int
 
 	externalImage resources.ExternalImage
+	cache         *Cache
 }
 
 var nodesPool = sync.Pool{
@@ -28,7 +29,7 @@ var nodesPool = sync.Pool{
 	},
 }
 
-func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage) (Nodes, error) {
+func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage, cache *Cache) (Nodes, error) {
 	nodes := nodesPool.Get().(Nodes)
 
 	err := doLayoutNode(pn, &nodes, layoutPhaseContext{
@@ -45,6 +46,7 @@ func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage) (N
 		},
 		level:         -1,
 		externalImage: externalImage,
+		cache:         cache,
 	}, userData, nil, 0)
 
 	if err != nil {
@@ -58,7 +60,7 @@ func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage) (N
 
 	if pn.GetScale() != 1.0 {
 		nodes.IterateNodes(func(node *Node) {
-			utils.ScaleAllValues(node, pn.GetScale())
+			ScaleAllValues(node, pn.GetScale())
 		})
 	}
 
@@ -73,12 +75,12 @@ func Release(nodes Nodes) {
 func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any, currentValueIndex int) error {
 	nodeLevel := context.level + 1
 
-	forEach, err := utils.ReplaceWithValues(pn.ForEach, value, parentValue, currentValueIndex)
+	forEach, err := replaceWithValues(pn.ForEach, value, parentValue, currentValueIndex, context.cache)
 	if err != nil {
 		return err
 	}
 
-	return utils.RunForEach(value, forEach, func(currentValue any, iteratorValue any, currentValueIndex int) error {
+	return RunForEach(value, forEach, func(currentValue any, iteratorValue any, currentValueIndex int) error {
 		if iteratorValue == nil {
 			iteratorValue = parentValue
 		}
@@ -107,7 +109,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		var text string
 		if pn.Text != "" {
-			text, err = utils.ReplaceWithValues(pn.Text, currentValue, iteratorValue, currentValueIndex)
+			text, err = replaceWithValues(pn.Text, currentValue, iteratorValue, currentValueIndex, context.cache)
 			if err != nil {
 				return err
 			}
@@ -130,8 +132,6 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		}
 
 		childrenNodesLevel := nodeLevel + 1
-
-		applyAbsolutePositions(nodes, childrenNodesLevel, from, newContext.size)
 
 		childCount := 0
 		nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
@@ -253,13 +253,15 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			props.Size.H = math.Max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 
+		applyAbsolutePositions(nodes, childrenNodesLevel, from, &props)
+
 		// Finally, apply offsets
 		nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
 			cn.Pos.Left += cn.Props.Offset.Left()
 			cn.Pos.Top += cn.Props.Offset.Top()
 		})
 
-		imageVal, err := utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue, currentValueIndex)
+		imageVal, err := replaceWithValues(pn.Image, currentValue, iteratorValue, currentValueIndex, context.cache)
 		if err != nil {
 			return err
 		}

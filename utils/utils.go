@@ -20,28 +20,28 @@ type Pos struct {
 
 type FourValues [4]float64
 
-func (fv FourValues) HasValues() bool {
+func (fv *FourValues) HasValues() bool {
 	return fv[0] > 0 || fv[1] > 0 || fv[2] > 0 || fv[3] > 0
 }
-func (fv FourValues) Width() float64 {
+func (fv *FourValues) Width() float64 {
 	return fv[0]
 }
-func (fv FourValues) Height() float64 {
+func (fv *FourValues) Height() float64 {
 	return fv[1]
 }
 
 type TopRightBottomLeft [4]float64
 
-func (s TopRightBottomLeft) Top() float64 {
+func (s *TopRightBottomLeft) Top() float64 {
 	return s[0]
 }
-func (s TopRightBottomLeft) Left() float64 {
+func (s *TopRightBottomLeft) Left() float64 {
 	return s[3]
 }
-func (s TopRightBottomLeft) Right() float64 {
+func (s *TopRightBottomLeft) Right() float64 {
 	return s[1]
 }
-func (s TopRightBottomLeft) Bottom() float64 {
+func (s *TopRightBottomLeft) Bottom() float64 {
 	return s[2]
 }
 
@@ -51,32 +51,32 @@ type AbsolutePos struct {
 }
 type AbsolutePosition [4]AbsolutePos
 
-func (a AbsolutePosition) Has() bool {
+func (a *AbsolutePosition) Has() bool {
 	return a[0].Has || a[1].Has || a[2].Has || a[3].Has
 }
-func (a AbsolutePosition) Left() float64 {
+func (a *AbsolutePosition) Left() float64 {
 	return a[3].Offset
 }
-func (a AbsolutePosition) Top() float64 {
+func (a *AbsolutePosition) Top() float64 {
 	return a[0].Offset
 }
-func (a AbsolutePosition) Right() float64 {
+func (a *AbsolutePosition) Right() float64 {
 	return a[1].Offset
 }
-func (a AbsolutePosition) Bottom() float64 {
+func (a *AbsolutePosition) Bottom() float64 {
 	return a[2].Offset
 }
 
-func (a AbsolutePosition) HasTop() bool {
+func (a *AbsolutePosition) HasTop() bool {
 	return a[0].Has
 }
-func (a AbsolutePosition) HasLeft() bool {
+func (a *AbsolutePosition) HasLeft() bool {
 	return a[3].Has
 }
-func (a AbsolutePosition) HasRight() bool {
+func (a *AbsolutePosition) HasRight() bool {
 	return a[1].Has
 }
-func (a AbsolutePosition) HasBottom() bool {
+func (a *AbsolutePosition) HasBottom() bool {
 	return a[2].Has
 }
 

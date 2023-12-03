@@ -1,27 +1,40 @@
-package utils
+package layout
 
 import (
 	"fmt"
 	"github.com/antonmedv/expr"
+	"github.com/godknowsiamgood/decorender/utils"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-func ReplaceWithValuesUnsafe(str string, value any, parentValue any, valueIndex int) string {
-	v, _ := ReplaceWithValues(str, value, parentValue, valueIndex)
+func replaceWithValuesUnsafe(str string, value any, parentValue any, valueIndex int, cache *Cache) string {
+	v, _ := replaceWithValues(str, value, parentValue, valueIndex, cache)
 	return v
 }
 
-func ReplaceWithValues(str string, value any, parentValue any, valueIndex int) (string, error) {
+func replaceWithValues(str string, value any, parentValue any, valueIndex int, cache *Cache) (string, error) {
 	if !strings.HasPrefix(str, "~") {
 		return str, nil
 	}
 
 	str = strings.TrimLeft(str, "~")
 
-	result, err := expr.Eval(str, map[string]any{"value": value, "parent": parentValue, "index": valueIndex})
+	cache.programsMx.Lock()
+	defer cache.programsMx.Unlock()
 
+	program, _ := cache.programs[utils.HashDJB2(str)]
+	if program == nil {
+		var err error
+		program, err = expr.Compile(str)
+		if err != nil {
+			return str, err
+		}
+		cache.programs[utils.HashDJB2(str)] = program
+	}
+
+	result, err := expr.Run(program, map[string]any{"value": value, "parent": parentValue, "index": valueIndex})
 	if err != nil {
 		return str, err
 	}

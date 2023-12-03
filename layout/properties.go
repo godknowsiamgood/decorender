@@ -22,14 +22,16 @@ const (
 	unitHeight
 )
 
+// calculateProperties is currently ugly function that needs refactoring.
+// Maybe we should introduce some fields generic configuration.
 func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, parentData any, currentValueIndex int) CalculatedProperties {
-	padding, _ := parseNValues(n.Padding, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false)
-	lineHeight, _ := parseNValues(n.LineHeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false)
-	borderRadius, _ := parseNValues(n.BorderRadius, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false)
+	padding, _ := parseNValues(n.Padding, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
+	lineHeight, _ := parseNValues(n.LineHeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
+	borderRadius, _ := parseNValues(n.BorderRadius, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
 
-	sz, szErr := parseNValues(n.Size, 2, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false)
-	width, widthErr := parseNValues(n.Width, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false)
-	height, heightErr := parseNValues(n.Height, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false)
+	sz, szErr := parseNValues(n.Size, 2, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
+	width, widthErr := parseNValues(n.Width, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
+	height, heightErr := parseNValues(n.Height, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
 	if szErr != nil {
 		sz[0], sz[1] = -1, -1
 	}
@@ -40,7 +42,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		sz[1] = height[0]
 	}
 
-	anchors := parseAnchors(n.Absolute, data, parentData, currentValueIndex)
+	anchors := parseAnchors(n.Absolute, data, parentData, currentValueIndex, context.cache)
 	if anchors.HasTop() && anchors.HasBottom() {
 		sz[1] = context.size.H - anchors.Top() - anchors.Bottom()
 	}
@@ -50,52 +52,52 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 
 	backgroundColor := color.RGBA{A: 0}
 	if n.BkgColor != "" {
-		backgroundColor, _ = parseColor(utils.ReplaceWithValuesUnsafe(n.BkgColor, data, parentData, currentValueIndex))
+		backgroundColor, _ = parseColor(replaceWithValuesUnsafe(n.BkgColor, data, parentData, currentValueIndex, context.cache))
 	}
 
 	bkgImageSize := validateStringValue(n.BkgImageSize, []string{"cover", "contain"})
 
 	fontColor := context.props.FontColor // inherited
 	if n.FontColor != "" {
-		fontColor, _ = parseColor(utils.ReplaceWithValuesUnsafe(n.FontColor, data, parentData, currentValueIndex))
+		fontColor, _ = parseColor(replaceWithValuesUnsafe(n.FontColor, data, parentData, currentValueIndex, context.cache))
 	}
 	if n.Color != "" {
-		fontColor, _ = parseColor(utils.ReplaceWithValuesUnsafe(n.Color, data, parentData, currentValueIndex))
+		fontColor, _ = parseColor(replaceWithValuesUnsafe(n.Color, data, parentData, currentValueIndex, context.cache))
 	}
 
 	fontDescription := context.props.FontDescription // inherited
-	fontDescription = parseFontString(n.Font, fontDescription, context.size.W, context.size.H, data, parentData, currentValueIndex)
+	fontDescription = parseFontString(n.Font, fontDescription, context.size.W, context.size.H, data, parentData, currentValueIndex, context.cache)
 	if n.FontFamily != "" {
-		fontDescription.Family = utils.ReplaceWithValuesUnsafe(n.FontFamily, data, parentData, currentValueIndex)
+		fontDescription.Family = replaceWithValuesUnsafe(n.FontFamily, data, parentData, currentValueIndex, context.cache)
 	}
 	if n.FontSize != "" {
-		v, err := parseNValues(n.FontSize, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false)
+		v, err := parseNValues(n.FontSize, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
 		if err == nil {
 			fontDescription.Size = v[0]
 		}
 	}
 	if n.FontWeight != "" {
-		v, err := parseNValues(n.FontWeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false)
+		v, err := parseNValues(n.FontWeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
 		if err == nil {
 			fontDescription.Weight = int(v[0])
 		}
 	}
 	if n.FontStyle != "" {
-		fontDescription.Style = lo.Ternary(utils.ReplaceWithValuesUnsafe(n.FontStyle, data, parentData, currentValueIndex) == "italic", font.StyleItalic, font.StyleNormal)
+		fontDescription.Style = lo.Ternary(replaceWithValuesUnsafe(n.FontStyle, data, parentData, currentValueIndex, context.cache) == "italic", font.StyleItalic, font.StyleNormal)
 	}
 
-	childrenDirection := validateStringValue(utils.ReplaceWithValuesUnsafe(n.InnerDirection, data, parentData, currentValueIndex), []string{"column", "row"})
-	childrenJustify := validateStringValue(utils.ReplaceWithValuesUnsafe(n.Justify, data, parentData, currentValueIndex), []string{"start", "center", "end", "space-between", "space-evenly"})
-	childrenColumnAlign := validateStringValue(utils.ReplaceWithValuesUnsafe(n.ChildrenColumnAlign, data, parentData, currentValueIndex), []string{"left", "center", "right"})
-	childrenWrap := validateStringValue(utils.ReplaceWithValuesUnsafe(n.ChildrenWrap, data, parentData, currentValueIndex), []string{"wrap", "none"})
+	childrenDirection := validateStringValue(replaceWithValuesUnsafe(n.InnerDirection, data, parentData, currentValueIndex, context.cache), []string{"column", "row"})
+	childrenJustify := validateStringValue(replaceWithValuesUnsafe(n.Justify, data, parentData, currentValueIndex, context.cache), []string{"start", "center", "end", "space-between", "space-evenly"})
+	childrenColumnAlign := validateStringValue(replaceWithValuesUnsafe(n.ChildrenColumnAlign, data, parentData, currentValueIndex, context.cache), []string{"left", "center", "right"})
+	childrenWrap := validateStringValue(replaceWithValuesUnsafe(n.ChildrenWrap, data, parentData, currentValueIndex, context.cache), []string{"wrap", "none"})
 
-	innerGap, _ := parseNValues(n.InnerGap, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false)
+	innerGap, _ := parseNValues(n.InnerGap, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
 
-	rotation, _ := parseNValues(n.Rotation, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, true)
+	rotation, _ := parseNValues(n.Rotation, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, true, context.cache)
 
-	border, _ := parseBorderProperty(utils.ReplaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex))
+	border, _ := parseBorderProperty(replaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex, context.cache))
 
-	offsetAnchors := parseAnchors(n.Offset, data, parentData, currentValueIndex)
+	offsetAnchors := parseAnchors(n.Offset, data, parentData, currentValueIndex, context.cache)
 
 	if n.Text != "" {
 		childrenDirection = "row"
@@ -123,8 +125,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 	}
 }
 
-func parseAnchors(value string, data any, parentValue any, currentValueIndex int) (result utils.AbsolutePosition) {
-	value = utils.ReplaceWithValuesUnsafe(value, data, parentValue, currentValueIndex)
+func parseAnchors(value string, data any, parentValue any, currentValueIndex int, cache *Cache) (result utils.AbsolutePosition) {
+	value = replaceWithValuesUnsafe(value, data, parentValue, currentValueIndex, cache)
 	tokens := strings.Fields(value)
 	for _, token := range tokens {
 		tokenParts := strings.Split(token, "/")
@@ -219,14 +221,14 @@ var parseValueRegex = regexp.MustCompile(`(?i)(-?\d+(\.\d+)?)(%|w|h|)`)
 var valuesEmptyErr = errors.New("values empty")
 var valuesParseErr = errors.New("values format not correct")
 
-func parseNValues(str string, max int, parentWidth float64, parentHeight float64, data any, parentData any, currentValueIndex int, relativeToWidth bool, allowNegative bool) (utils.FourValues, error) {
+func parseNValues(str string, max int, parentWidth float64, parentHeight float64, data any, parentData any, currentValueIndex int, relativeToWidth bool, allowNegative bool, cache *Cache) (utils.FourValues, error) {
 	var result utils.FourValues
 
 	if str == "" {
 		return result, valuesEmptyErr
 	}
 
-	str = utils.ReplaceWithValuesUnsafe(str, data, parentData, currentValueIndex)
+	str = replaceWithValuesUnsafe(str, data, parentData, currentValueIndex, cache)
 
 	matches := parseValueRegex.FindAllStringSubmatch(str, -1)
 	if len(matches) > max || len(matches) == 0 {
@@ -334,19 +336,19 @@ func validateStringValue(v string, options []string) string {
 	return options[0]
 }
 
-func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64, parentHeight float64, data any, parentData any, currentValueIndex int) fonts.FaceDescription {
+func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64, parentHeight float64, data any, parentData any, currentValueIndex int, cache *Cache) fonts.FaceDescription {
 	if prop == "" {
 		return fd
 	}
 
-	prop = utils.ReplaceWithValuesUnsafe(prop, data, parentData, currentValueIndex)
+	prop = replaceWithValuesUnsafe(prop, data, parentData, currentValueIndex, cache)
 	prop = strings.ReplaceAll(prop, ",", " ")
 
 	isSizeSet := false
 
 	tokens := strings.Fields(prop)
 	for _, token := range tokens {
-		v, err := parseNValues(token, 1, parentWidth, parentHeight, data, parentData, currentValueIndex, true, false)
+		v, err := parseNValues(token, 1, parentWidth, parentHeight, data, parentData, currentValueIndex, true, false, cache)
 		if err != nil {
 			if token == "italic" {
 				fd.Style = font.StyleItalic
