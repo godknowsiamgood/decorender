@@ -61,11 +61,22 @@ func applyBorderRadius(cache *Cache, src *image.RGBA, radii utils.FourValues) {
 			for x := bounds.Min.X; x < bounds.Max.X; x++ {
 				maskAlpha := mask.At(x, y).(color.Alpha).A
 				srcIdx := src.PixOffset(x, y)
-				alphaRatio := float64(maskAlpha) / 255
-				for c := 0; c < 3; c++ {
-					src.Pix[srcIdx+c] = uint8(float64(src.Pix[srcIdx+c]) * alphaRatio)
+
+				existingAlpha := src.Pix[srcIdx+3]
+				var alphaRatio float64
+				if existingAlpha > 0 {
+					alphaRatio = float64(maskAlpha) / float64(existingAlpha)
+				} else {
+					alphaRatio = 0
 				}
-				src.Pix[srcIdx+3] = maskAlpha
+
+				if alphaRatio < 1 {
+					for c := 0; c < 3; c++ {
+						src.Pix[srcIdx+c] = uint8(float64(src.Pix[srcIdx+c]) * alphaRatio)
+					}
+				}
+
+				src.Pix[srcIdx+3] = min(maskAlpha, existingAlpha)
 			}
 		}
 	})

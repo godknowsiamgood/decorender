@@ -45,38 +45,38 @@ func (s TopRightBottomLeft) Bottom() float64 {
 	return s[2]
 }
 
-type Anchor struct {
+type AbsolutePos struct {
 	Has    bool
 	Offset float64
 }
-type Anchors [4]Anchor
+type AbsolutePosition [4]AbsolutePos
 
-func (a Anchors) Has() bool {
+func (a AbsolutePosition) Has() bool {
 	return a[0].Has || a[1].Has || a[2].Has || a[3].Has
 }
-func (a Anchors) Left() float64 {
+func (a AbsolutePosition) Left() float64 {
 	return a[3].Offset
 }
-func (a Anchors) Top() float64 {
+func (a AbsolutePosition) Top() float64 {
 	return a[0].Offset
 }
-func (a Anchors) Right() float64 {
+func (a AbsolutePosition) Right() float64 {
 	return a[1].Offset
 }
-func (a Anchors) Bottom() float64 {
+func (a AbsolutePosition) Bottom() float64 {
 	return a[2].Offset
 }
 
-func (a Anchors) HasTop() bool {
+func (a AbsolutePosition) HasTop() bool {
 	return a[0].Has
 }
-func (a Anchors) HasLeft() bool {
+func (a AbsolutePosition) HasLeft() bool {
 	return a[3].Has
 }
-func (a Anchors) HasRight() bool {
+func (a AbsolutePosition) HasRight() bool {
 	return a[1].Has
 }
-func (a Anchors) HasBottom() bool {
+func (a AbsolutePosition) HasBottom() bool {
 	return a[2].Has
 }
 
@@ -134,6 +134,10 @@ func (s *Stack[T]) Last() T {
 	} else {
 		return (*s)[len(*s)-1]
 	}
+}
+
+func (s *Stack[T]) Len() int {
+	return len(*s)
 }
 
 type DebugPool struct {

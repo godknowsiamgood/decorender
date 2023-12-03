@@ -1,348 +1,268 @@
-size: 1000 1000
-bkgColor: black
+size: 1100 1100
+bkgColor: gray
 color: white
 font: Roboto 14
 scale: 1
 innerDirection: row
-padding: 20
+innerGap: 10
 inner:
-  - inner:
-      - text: Simple rectangle
-        width: 100
-      - size: 100 100
-        bkgColor: coral
 
-  - inner:
-      - text: Rectangle with border radius
-        width: 100
-      - size: 100 100
-        borderRadius: 10 20 10 30
-        bkgColor: coral
+  # Simple rectangle
+  - size: 100 100
+    bkgColor: white
+    inner:
+      - size: 100% 50%
+        bkgColor: blue
 
-  - inner:
-      - text: Autosize rectangle
-        width: 100
+  # Auto size
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    inner:
       - bkgColor: coral
-        padding: 10
         inner:
-          - size: 80 100
-            bkgColor: white
-
-  - inner:
-      - text: Gaps vertical
-        width: 50
+          - bkgColor: blue
+            size: 20 20
+          - bkgColor: blue
+            size: 30 30
       - bkgColor: coral
-        padding: 10
-        innerGap: 10
-        inner:
-          - size: 20 20
-            bkgColor: red
-          - size: 20 20
-            bkgColor: green
-          - size: 20 20
-            bkgColor: blue
-
-  - inner:
-      - text: Gaps horizontal
-        width: 100
-      - bkgColor: coral
-        padding: 10
-        innerGap: 10
-        innerDirection: row
-        inner:
-          - size: 20 20
-            bkgColor: red
-          - size: 20 20
-            bkgColor: green
-          - size: 20 20
-            bkgColor: blue
-
-  - inner:
-      - text: Gaps horizontal and vertical
-        width: 100
-      - bkgColor: coral
-        padding: 10
-        innerGap: 10
-        innerDirection: row
-        width: 100
-        inner:
-          - size: 20 20
-            bkgColor: red
-          - size: 20 20
-            bkgColor: green
-          - size: 20 20
-            bkgColor: blue
-          - size: 20 20
-            bkgColor: yellow
-          - size: 20 20
-            bkgColor: white
-
-  - inner:
-      - text: Simple text with line height
-        width: 100
-      - bkgColor: coral
-        font: Roboto 20
-        lineHeight: 20
-        text: AaBbCcDdJjQq
-
-  - inner:
-      - text: Text with wrapping
-        width: 100
-      - bkgColor: coral
-        width: 100
-        font: Roboto 15
-        text: Text with word wrap
-
-  - inner:
-      - text: Absolute positioning
-        width: 100
-      - bkgColor: coral
-        size: 200 100
-        padding: 10 15 22 11
-        inner:
-          - size: 20 20
-            bkgColor: red
-            absolute: left
-          - size: 20 20
-            bkgColor: green
-            absolute: top
-          - size: 20 20
-            bkgColor: blue
-            absolute: right
-          - size: 20 20
-            bkgColor: white
-            absolute: bottom
-          - size: 20 20
-            bkgColor: yellow
-            absolute: top left
-          - size: 20 20
-            bkgColor: pink
-            absolute: top right
-          - size: 20 20
-            bkgColor: cyan
-            absolute: bottom right
-          - size: 20 20
-            bkgColor: magenta
-            absolute: bottom left
-
-
-  - inner:
-      - text: Absolute positioning 2
-        width: 150
-      - bkgColor: coral
-        size: 200 100
         padding: 5
         inner:
-          - size: 20 20
-            bkgColor: red
-            absolute: left right
-          - size: 20 10
-            bkgColor: green
-            absolute: top bottom
-          - size: 20 20
-            bkgColor: yellow
-            absolute: top right bottom
-          - size: 20 20
-            bkgColor: blue
-            absolute: top left bottom
+          - bkgColor: blue
+            size: 20 20
+          - bkgColor: blue
+            size: 30 30
 
-  - inner:
-      - text: Absolute positioning with offsets
-        width: 150
+  # Autosize with text
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    inner:
       - bkgColor: coral
-        size: 200 100
         inner:
-          - size: 20 20
-            bkgColor: red
-            absolute: right/-10
-          - size: 10 10
-            bkgColor: blue
-            absolute: left right/-10
-          - size: 10 10
-            bkgColor: green
-            absolute: left/10 top/10
-          - size: 10 10
-            bkgColor: yellow
-            absolute: right/20 top/10
-
-  - inner:
-      - text: Cover image
-        width: 150
+          - text: Hello
       - bkgColor: coral
-        size: 150 100
-        padding: 10
-        inner:
-          - bkgImage: test_img.jpeg
-            size: 100% 100%
-
-  - inner:
-      - text: Padding and width 100%
-        width: 150
-      - bkgColor: coral
-        size: 150 40
-        inner:
-          - width: 100%
-            padding: 10 5 10 5
-            bkgColor: white
-            inner:
-              - size: 10 10
-                bkgColor: red
-
-  - inner:
-      - text: Image containing
-        width: 120
-      - size: 120 120
-        inner:
-          - bkgImage: test_img.jpeg
-            bkgImageSize: contain
-            bkgColor: salmon
-            size: 100% 100%
-
-  - inner:
-      - text: Borders
-        width: 120
-      - bkgColor: salmon
         padding: 5
-        innerDirection: row
-        innerGap: 8
         inner:
-          - size: 30 30
-            bkgColor: yellow
-            borderRadius: 5
-            border: inset 3 0x00000055
-          - size: 30 30
-            bkgColor: yellow
-            borderRadius: 5
-            border: outset 3 0x00000055
-          - size: 30 30
-            bkgColor: yellow
-            borderRadius: 5
-            border: center 3 0x00000055
+          - text: World
 
-  - inner:
-      - text: For each
-        width: 120
-      - bkgColor: salmon
-        innerDirection: row
-        size: 100 100
-        innerGap: 2
-        padding: 5
-        font: 20
-        inner:
-          - forEach: StringsSlice
-            bkgColor: blue
-            font: 15
-            text: "~ value + ' ' + string(100 / len(parent)) + ' ' + string(findIndex(parent, # == value))"
+  # Wrapping
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    inner:
+      - forEach: 11
+        size: 30 20
+        bkgColor: blue
 
-  - inner:
-      - text: Justify vertical and size test
-        width: 150
-      - bkgColor: salmon
-        size: 150 100
-        padding: 20
-        inner:
-          - justify: center
-            size: 100% 100%
-            bkgColor: white
-            inner:
-              - size: 20 30
-                bkgColor: blue
+  # Wrapping align end
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    justify: end
+    inner:
+      - forEach: 11
+        size: 30 20
+        bkgColor: blue
 
-  - inner:
-      - text: Justify test
-        width: 150
-      - bkgColor: salmon
-        size: 150 100
-        padding: 10
-        justify: space-between
-        innerDirection: row
-        inner:
-          - size: 10 10
-            forEach: 5
-            bkgColor: white
+  # Wrapping align center
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    justify: center
+    inner:
+      - forEach: 11
+        size: 30 20
+        bkgColor: blue
 
-  - inner:
-      - text: Absolute positioning with children
-        width: 130
-      - size: 130 130
-        bkgColor: white
-        inner:
-          - size: 100 100
-            bkgColor: coral
-            absolute: left bottom
-            inner:
-              - size: 30 30
-                bkgColor: red
-              - size: 30 30
-                bkgColor: green
-              - size: 60 60
-                bkgColor: blue
-                absolute: right bottom
+  # Wrapping align
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    justify: space-between
+    inner:
+      - forEach: 11
+        size: 30 20
+        bkgColor: blue
 
-  - inner:
-      - text: Rotate 1
-        width: 130
-      - size: 100 100
+  # Wrapping align center
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    justify: center
+    innerGap: 5
+    inner:
+      - forEach: 11
+        size: 30 10
+        bkgColor: blue
+
+  # Padding
+  - size: 100 100
+    bkgColor: white
+    padding: 10
+    innerDirection: row
+    inner:
+      - forEach: 11
+        size: 30 10
+        bkgColor: blue
+
+  # Text
+  - size: 100 100
+    bkgColor: white
+    color: black
+    inner:
+      - text: One two three four six
+      - text: One two three four six
+        justify: end
+      - text: One two three four six
+        justify: center
+
+  # Absolute positions
+  - size: 100 100
+    bkgColor: white
+    padding: 5
+    inner:
+      - size: 10 10
+        bkgColor: red
+        absolute: left
+      - size: 10 10
+        bkgColor: blue
+        absolute: right
+      - size: 10 10
+        bkgColor: purple
+        absolute: top
+      - size: 10 10
+        bkgColor: green
+        absolute: bottom
+      - size: 10 10
+        bkgColor: green
+        absolute: top left
+      - size: 10 10
+        bkgColor: cyan
+        absolute: top right
+      - size: 10 10
         bkgColor: coral
+        absolute: bottom right
+      - size: 10 10
+        bkgColor: khaki
+        absolute: bottom left
+
+  # Absolute positions 2
+  - size: 100 100
+    bkgColor: white
+    padding: 5
+    inner:
+      - size: 10 10
+        bkgColor: red
+        absolute: left right
+      - size: 10 10
+        bkgColor: red
+        absolute: top bottom
+      - size: 10 10
+        bkgColor: green
+        absolute: top bottom left
+      - size: 10 10
+        bkgColor: green
+        absolute: top bottom right
+
+  # Absolute positions 3
+  - size: 100 100
+    bkgColor: white
+    padding: 5
+    inner:
+      - size: 10 10
+        bkgColor: red
+        absolute: left/-10 right/10
+      - size: 10 10
+        bkgColor: green
+        absolute: top/-10 bottom/10
+
+  # Images
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    inner:
+      - size: 50 50
+        bkgImage: test_img.jpeg
+      - size: 50 50
+        bkgImage: test_img2.png
+      - size: 50 50
+        bkgImage: test_img.jpeg
+        bkgImageSize: contain
+
+  # Images with border radius
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    inner:
+      - size: 50 50
+        bkgImage: test_img.jpeg
+        borderRadius: 10
+      - size: 50 50
+        bkgImage: test_img.jpeg
+        bkgImageSize: contain
+        borderRadius: 10
+      - size: 50 50
+        bkgImage: test_img2.png
+        borderRadius: 10
+      - size: 50 50
+        bkgImage: test_img2.png
+        bkgImageSize: contain
+        borderRadius: 10
+
+  # Borders
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    innerGap: 5
+    justify: space-evenly
+    inner:
+      - size: 30 30
+        bkgColor: blue
+        border: outset 5 red
+      - size: 30 30
+        bkgColor: blue
+        border: inset 5 red
+      - size: 30 30
+        bkgColor: blue
+        border: center 5 red
+      - size: 30 30
+        bkgColor: blue
+        border: outset 5 red
+        borderRadius: 10
+      - size: 30 30
+        bkgColor: blue
+        border: inset 5 red
+        borderRadius: 10
+      - size: 30 30
+        bkgColor: blue
+        border: center 5 red
+        borderRadius: 10
+
+  # Borders
+  - size: 100 100
+    bkgColor: white
+    innerDirection: row
+    inner:
+      - size: 50 50
+        bkgColor: blue
+        rotate: 10
         inner:
-          - size: 50 50
-            bkgColor: white
-            rotate: 20
+          - size: 25 25
+            bkgColor: red
+          - size: 25 25
+            bkgColor: green
             absolute: right bottom
 
-  - inner:
-      - text: Last item should be on top
-        width: 130
-      - size: 130 30
-        bkgColor: coral
-        inner:
-          - forEach: StringsSlice
-            text: ~ value
-            bkgColor: blue
-            absolute: left top
-
-  - inner:
-      - text: Padding
-        width: 80
-      - text: Aa
+  # For each
+  - bkgColor: white
+    innerDirection: row
+    size: 100 100
+    innerGap: 2
+    padding: 5
+    font: 20
+    inner:
+      - forEach: StringsSlice
         bkgColor: blue
-        padding: 5 30
-
-  - inner:
-      - text: Borders with rotate
-        width: 80
-      - innerDirection: row
-        size: 30 30
-        bkgColor: white
-        border: outset 5 red
-        rotate: -10
-
-  - inner:
-      - text: For each
-        width: 80
-      - innerDirection: row
-        innerGap: 2
-        inner:
-          - forEach: 5
-            bkgColor: yellow
-            size: 20 20
-            borderRadius: 3
-            rotate: ~ value * 10
-
-  - inner:
-      - text: Image with borders
-        width: 80
-      - innerDirection: row
-        inner:
-        - bkgImage: test_img.jpeg
-          size: 40 40
-          borderRadius: 10
-        - bkgImage: test_img.jpeg
-          size: 40 40
-          borderRadius: 10
-          border: 5 red
-        - bkgImage: test_img.jpeg
-          size: 40 40
-          borderRadius: 99
-          border: 5 blue
-          rotate: -10
+        font: 15
+        text: "~ value + ' ' + string(100 / len(parent)) + ' ' + string(findIndex(parent, # == value))"

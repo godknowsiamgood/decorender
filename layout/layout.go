@@ -56,8 +56,6 @@ func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage) (N
 		return nil, fmt.Errorf("no nodes to render")
 	}
 
-	applyOffsets(&nodes)
-
 	if pn.GetScale() != 1.0 {
 		nodes.IterateNodes(func(node *Node) {
 			utils.ScaleAllValues(node, pn.GetScale())
@@ -133,14 +131,18 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		childrenNodesLevel := nodeLevel + 1
 
+		applyAbsolutePositions(nodes, childrenNodesLevel, from, newContext.size)
+
 		childCount := 0
-		nodes.IterateChildNodes(childrenNodesLevel, from, func(_ *Node) {
-			childCount += 1
+		nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
+			if !cn.IsAbsolutePositioned() {
+				childCount += 1
+			}
 		})
 
-		isDirectionRow := props.IsChildrenDirectionRow
-
+		// Apply wrapping and aligning. All of this can be applied only for not absolute positioned elements
 		if childCount > 0 {
+			isDirectionRow := props.IsChildrenDirectionRow
 
 			// do child wrapping
 			if isDirectionRow {
@@ -150,7 +152,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 				var prevInRow *Node
 				nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
-					if !cn.HasAnchors() {
+					if !cn.IsAbsolutePositioned() {
 						if props.IsWrappingEnabled && currentWidth+cn.Size.W > newContext.size.W && cn.Size.W < newContext.size.W {
 							currentWidth = 0
 							currentRowIndex += 1
@@ -198,7 +200,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 					var maxHeight float64
 					nodes.IterateRow(childrenNodesLevel, from, rowIndex, func(cn *Node) {
-						if cn.HasAnchors() {
+						if cn.IsAbsolutePositioned() {
 							return
 						}
 						cn.Pos.Left = offset
@@ -213,7 +215,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				totalHeight, count := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
 				offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalHeight, newContext.size.H, count)
 				nodes.IterateRows(childrenNodesLevel, from, func(_ int, node *Node) {
-					if node.HasAnchors() {
+					if node.IsAbsolutePositioned() {
 						return
 					}
 					node.Pos.Top = offset
@@ -225,7 +227,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 			if !isDirectionRow {
 				nodes.IterateRow(childrenNodesLevel, from, 0, func(cn *Node) {
-					if cn.HasAnchors() {
+					if cn.IsAbsolutePositioned() {
 						return
 					}
 
@@ -251,6 +253,12 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			props.Size.H = math.Max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 
+		// Finally, apply offsets
+		nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
+			cn.Pos.Left += cn.Props.Offset.Left()
+			cn.Pos.Top += cn.Props.Offset.Top()
+		})
+
 		imageVal, err := utils.ReplaceWithValues(pn.Image, currentValue, iteratorValue, currentValueIndex)
 		if err != nil {
 			return err
@@ -262,6 +270,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			Props: props,
 			Image: imageVal,
 			Level: nodeLevel,
+			// Pos is not set here, because parent is responsible for doing this
 		}
 
 		if ln.Image != "" {
@@ -271,13 +280,6 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		*nodes = append(*nodes, ln)
 
 		return nil
-	})
-}
-
-func applyOffsets(nodes *Nodes) {
-	nodes.IterateNodes(func(node *Node) {
-		node.Pos.Left += node.Props.Offset.Left()
-		node.Pos.Top += node.Props.Offset.Top()
 	})
 }
 

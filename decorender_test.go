@@ -31,7 +31,9 @@ func BenchmarkRender(b *testing.B) {
 	d, _ := NewRenderer("./cmd/decorender_server/bilets/bilets.yaml", &Options{
 		LocalFiles: os.DirFS("cmd/decorender_server"),
 	})
-	for i := 0; i < b.N; i++ {
-		_ = d.RenderAndWrite(nil, EncodeFormatJPG, nil, &RenderOptions{UseSample: true})
-	}
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_ = d.RenderAndWrite(nil, EncodeFormatJPG, nil, &RenderOptions{UseSample: true})
+		}
+	})
 }

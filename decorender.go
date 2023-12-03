@@ -149,7 +149,7 @@ func (r *Decorender) Render(userData any, opts *RenderOptions) (dst image.Image,
 
 	// Second phase is render
 
-	dst, err = render.Do(nodes, r.renderCache, r.externalImage, r.localFiles)
+	dst, err = render.Do(nodes, r.renderCache)
 	if err != nil {
 		return nil, nil, err
 	}

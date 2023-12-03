@@ -1,6 +1,6 @@
 module github.com/godknowsiamgood/decorender
 
-go 1.19
+go 1.21
 
 require (
 	github.com/antonmedv/expr v1.15.4

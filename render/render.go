@@ -5,33 +5,35 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/godknowsiamgood/decorender/fonts"
 	"github.com/godknowsiamgood/decorender/layout"
-	"github.com/godknowsiamgood/decorender/resources"
 	"github.com/godknowsiamgood/decorender/utils"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 	"image"
 	"image/color"
-	"io/fs"
 	"math"
 	"strings"
 	"sync"
 )
 
-// drawState is a current state in render stack
-// it keeps current level, to track when to pop (actually it is stored in node, but separate field is more convenient)
-// it keeps current image destination (when it comes to rotation, all nodes should be rendered separately)
-type drawState struct {
-	level int
-	dst   *image.RGBA
-	pos   utils.Pos
-	node  *layout.Node
-}
+/*
+	Ideally, all positioning, including absolute coordinates, should be handled during the layout phase.
+	However, only local coordinates and sizes are calculated at layout stage.
+	The computation of the final world position is performed during the rendering phase.
+	This is solely due to one factor: if an element has a rotation,
+	it needs to be drawn in a separate target, whose positions start from zero.
+*/
 
 type drawContext struct {
-	cache         *Cache
-	externalImage resources.ExternalImage
-	localImage    fs.FS
+	cache *Cache
+}
+
+// drawState represents the current state in the rendering stack
+type drawState struct {
+	dst  *image.RGBA
+	node *layout.Node
+	// pos is a current world position
+	pos utils.Pos
 }
 
 var stacksPool = sync.Pool{
@@ -40,13 +42,14 @@ var stacksPool = sync.Pool{
 	},
 }
 
-func Do(nodes layout.Nodes, cache *Cache, externalImages resources.ExternalImage, localImages fs.FS) (*image.RGBA, error) {
+func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 	stack := stacksPool.Get().(utils.Stack[drawState])
 
 	defer func() {
+		// In case of early return (e.g. error occurred),
+		// we have to release images in stack, but keeping top one - it will be released in caller
 		var topDst image.Image
 		for i := range stack {
-			// Release images in stack, but keep top one - it will be released in caller
 			if i == 0 {
 				topDst = stack[i].dst
 			}
@@ -60,51 +63,49 @@ func Do(nodes layout.Nodes, cache *Cache, externalImages resources.ExternalImage
 	}()
 
 	dc := drawContext{
-		cache:         cache,
-		externalImage: externalImages,
-		localImage:    localImages,
+		cache: cache,
 	}
 
-	// last node in slice is a root, since in recursive layout phase it was added in very last step
+	// Due to the nature of storing nodes in a one-dimensional array (see comments in the layout package),
+	// the root node is located at the very end.
 	for i := len(nodes) - 1; i >= 0; i-- {
 		n := &nodes[i]
 
+		// Ascend the stack if necessary
 		popupStack(&stack, n.Level)
 
-		state := stack.Last() // copy of current state
+		state := stack.Last() // next node, new state
 
 		// Create new destination image in case of root node and nodes that rotating
 		if state.dst == nil || math.Abs(n.Props.Rotation) > math.SmallestNonzeroFloat64 {
-			// new destination and reset starting from origin point
-			// but with respect with borders, that can be outside of element
-
+			// New destination requires resetting world position.
+			// Borders should be respected since they can be outside of element.
 			borderOffset := n.Props.Border.GetOutsetOffset()
 			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W+borderOffset*2)), int(math.Ceil(n.Size.H+borderOffset*2)))
-			err := drawNode(state.dst, n, borderOffset, borderOffset, dc)
-			if err != nil {
+
+			if err := drawNode(state.dst, n, borderOffset, borderOffset, dc); err != nil {
 				return stack[0].dst, err
 			}
+
+			// Next world position is just current node padding
 			state.pos = utils.Pos{
 				Left: n.Props.Padding.Left(),
 				Top:  n.Props.Padding.Top(),
 			}
 		} else {
-			left, top := getLocalLeftTop(state.node, n)
-			err := drawNode(state.dst, n, state.pos.Left+left, state.pos.Top+top, dc)
-			if err != nil {
+			if err := drawNode(state.dst, n, state.pos.Left+n.Pos.Left, state.pos.Top+n.Pos.Top, dc); err != nil {
 				return stack[0].dst, err
 			}
 
-			// Next position is world + current + current's padding
+			// Next world position is previous world + current node local position + current node padding
 			state.pos = utils.Pos{
-				Left: state.pos.Left + left + n.Props.Padding.Left(),
-				Top:  state.pos.Top + top + n.Props.Padding.Top(),
+				Left: state.pos.Left + n.Pos.Left + n.Props.Padding.Left(),
+				Top:  state.pos.Top + n.Pos.Top + n.Props.Padding.Top(),
 			}
 		}
 
 		state.node = n
-		state.level = n.Level
-		stack.Push(state) // new state added
+		stack.Push(state)
 	}
 
 	popupStack(&stack, 1)
@@ -112,72 +113,40 @@ func Do(nodes layout.Nodes, cache *Cache, externalImages resources.ExternalImage
 	return stack[0].dst, nil
 }
 
+// At the next node, which is higher than the previous node in level,
+// it is necessary to ascend the stack as many times as needed.
+// Along the way, apply final renderings for rotations.
 func popupStack(stack *utils.Stack[drawState], level int) {
-	if level <= stack.Last().level {
-		for {
-			state := stack.Pop()
-			upperState := stack.Last()
-
-			if state.dst != upperState.dst && upperState.dst != nil {
-				// at this moment only case when destination may differ is rotation
-				// so perform rotation of image and then render it on image upper on stack
-				rotated := imaging.Rotate(state.dst, state.node.Props.Rotation, color.RGBA{})
-				rotatedBounds := rotated.Bounds()
-
-				// rotated image has different sizes, so we have to center it
-				dx := rotatedBounds.Dx() - state.dst.Bounds().Dx() + int(state.node.Props.Border.GetOutsetOffset()*2)
-				dy := rotatedBounds.Dy() - state.dst.Bounds().Dy() + int(state.node.Props.Border.GetOutsetOffset()*2)
-
-				left, top := getLocalLeftTop(upperState.node, state.node)
-				bounds := image.Rect(
-					int(upperState.pos.Left+left)-dx/2, int(upperState.pos.Top+top)-dy/2,
-					int(upperState.pos.Left+left)-dx/2+rotatedBounds.Dx(), int(upperState.pos.Top+top)-dy/2+rotatedBounds.Dy())
-				draw.Draw(upperState.dst, bounds, rotated, image.Point{}, draw.Over)
-				utils.ReleaseImage(state.dst)
-			}
-
-			if level == state.level {
-				break
-			}
-		}
-	}
-}
-
-func getLocalLeftTop(parentNode *layout.Node, childNode *layout.Node) (float64, float64) {
-	var left float64
-	var top float64
-
-	if childNode.HasAnchors() {
-		topPadding := parentNode.Props.Padding.Top()
-		rightPadding := parentNode.Props.Padding.Right()
-		bottomPadding := parentNode.Props.Padding.Bottom()
-		leftPadding := parentNode.Props.Padding.Left()
-
-		if childNode.Props.Anchors.HasLeft() || childNode.Props.Anchors.HasRight() {
-			if !childNode.Props.Anchors.HasTop() && !childNode.Props.Anchors.HasBottom() {
-				top = (parentNode.Size.H-topPadding-bottomPadding)/2 - childNode.Size.H/2
-			}
-			if childNode.Props.Anchors.HasRight() {
-				left = parentNode.Size.W - leftPadding - rightPadding - childNode.Size.W - childNode.Props.Anchors.Right()
-			} else {
-				left = childNode.Props.Anchors.Left()
-			}
-		}
-		if childNode.Props.Anchors.HasTop() || childNode.Props.Anchors.HasBottom() {
-			if !childNode.Props.Anchors.HasLeft() && !childNode.Props.Anchors.HasRight() {
-				left = (parentNode.Size.W-leftPadding-rightPadding)/2 - childNode.Size.W/2
-			}
-			if childNode.Props.Anchors.HasBottom() {
-				top = parentNode.Size.H - topPadding - bottomPadding - childNode.Size.H - childNode.Props.Anchors.Bottom()
-			} else {
-				top = childNode.Props.Anchors.Top()
-			}
-		}
-	} else {
-		left, top = childNode.Pos.Left, childNode.Pos.Top
+	if stack.Len() == 0 || level > stack.Last().node.Level {
+		return
 	}
 
-	return left, top
+	for {
+		state := stack.Pop()
+		upperState := stack.Last()
+
+		if state.dst != upperState.dst && upperState.dst != nil {
+			// at this moment only case when destination may differ is rotation
+			// so perform rotation of image and then render it on image upper on stack
+			rotated := imaging.Rotate(state.dst, state.node.Props.Rotation, color.RGBA{})
+			rotatedBounds := rotated.Bounds()
+
+			// rotated image has different sizes, so we have to center it
+			dx := rotatedBounds.Dx() - state.dst.Bounds().Dx() + int(state.node.Props.Border.GetOutsetOffset()*2)
+			dy := rotatedBounds.Dy() - state.dst.Bounds().Dy() + int(state.node.Props.Border.GetOutsetOffset()*2)
+
+			left, top := state.node.Pos.Left, state.node.Pos.Top
+			bounds := image.Rect(
+				int(upperState.pos.Left+left)-dx/2, int(upperState.pos.Top+top)-dy/2,
+				int(upperState.pos.Left+left)-dx/2+rotatedBounds.Dx(), int(upperState.pos.Top+top)-dy/2+rotatedBounds.Dy())
+			draw.Draw(upperState.dst, bounds, rotated, image.Point{}, draw.Over)
+			utils.ReleaseImage(state.dst)
+		}
+
+		if level == state.node.Level {
+			break
+		}
+	}
 }
 
 func drawNode(dst *image.RGBA, n *layout.Node, left float64, top float64, dc drawContext) error {
@@ -231,7 +200,7 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error
 			r = utils.SimplifyRune(r)
 
 			// Since there is no sophisticated font rasterizer as harfbuzz
-			// we have some issues with rendering some runes, like columns
+			// we have some issues with rendering some runes, like colons
 			if r == ':' || r == ';' {
 				pt.Y = ptY - fixed.I(int(3.0*n.Props.FontDescription.Size/44))
 			} else {

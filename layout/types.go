@@ -27,7 +27,7 @@ type CalculatedProperties struct {
 	Padding                utils.TopRightBottomLeft
 	LineHeight             float64
 	BorderRadius           utils.FourValues
-	Anchors                utils.Anchors
+	AbsolutePosition       utils.AbsolutePosition
 	InnerGap               float64
 	Rotation               float64
 	BkgImageSize           BkgImageSizeType
@@ -52,8 +52,8 @@ type Node struct {
 	InRowIndex int
 }
 
-func (n *Node) HasAnchors() bool {
-	return n.Props.Anchors.Has()
+func (n *Node) IsAbsolutePositioned() bool {
+	return n.Props.AbsolutePosition.Has()
 }
 
 // Nodes represents hierarchy for nodes. It uses linear slice for efficiency.
@@ -118,7 +118,7 @@ func (nodes Nodes) IterateChildNodes(level int, from int, cb func(cn *Node)) {
 
 func (nodes Nodes) RowsTotalHeight(level int, from int, gap float64) (height float64, count int) {
 	nodes.IterateRows(level, from, func(rowIndex int, node *Node) {
-		if node.HasAnchors() {
+		if node.IsAbsolutePositioned() {
 			return
 		}
 		count += 1
@@ -133,7 +133,7 @@ func (nodes Nodes) RowTotalWidth(level int, from int, rowIndex int, textWhitespa
 	hyphensCount := 0
 	count := 0
 	nodes.IterateRow(level, from, rowIndex, func(cn *Node) {
-		if cn.HasAnchors() {
+		if cn.IsAbsolutePositioned() {
 			return
 		}
 

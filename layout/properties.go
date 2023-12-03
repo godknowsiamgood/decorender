@@ -114,7 +114,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		Padding:                utils.TopRightBottomLeft{padding[0], padding[1], padding[2], padding[3]},
 		FontDescription:        fontDescription,
 		BorderRadius:           borderRadius,
-		Anchors:                anchors,
+		AbsolutePosition:       anchors,
 		InnerGap:               innerGap[0],
 		Rotation:               rotation[0],
 		BkgImageSize:           lo.Ternary(bkgImageSize == "contain", BkgImageSizeContain, BkgImageSizeCover),
@@ -123,7 +123,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 	}
 }
 
-func parseAnchors(value string, data any, parentValue any, currentValueIndex int) (result utils.Anchors) {
+func parseAnchors(value string, data any, parentValue any, currentValueIndex int) (result utils.AbsolutePosition) {
 	value = utils.ReplaceWithValuesUnsafe(value, data, parentValue, currentValueIndex)
 	tokens := strings.Fields(value)
 	for _, token := range tokens {
@@ -140,13 +140,13 @@ func parseAnchors(value string, data any, parentValue any, currentValueIndex int
 
 		switch direction {
 		case "top":
-			result[0] = utils.Anchor{Has: true, Offset: offset}
+			result[0] = utils.AbsolutePos{Has: true, Offset: offset}
 		case "right":
-			result[1] = utils.Anchor{Has: true, Offset: offset}
+			result[1] = utils.AbsolutePos{Has: true, Offset: offset}
 		case "bottom":
-			result[2] = utils.Anchor{Has: true, Offset: offset}
+			result[2] = utils.AbsolutePos{Has: true, Offset: offset}
 		case "left":
-			result[3] = utils.Anchor{Has: true, Offset: offset}
+			result[3] = utils.AbsolutePos{Has: true, Offset: offset}
 		}
 	}
 	return result
