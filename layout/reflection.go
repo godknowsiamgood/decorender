@@ -24,14 +24,15 @@ func replaceWithValues(str string, value any, parentValue any, valueIndex int, c
 	cache.programsMx.Lock()
 	defer cache.programsMx.Unlock()
 
-	program, _ := cache.programs[utils.HashDJB2(str)]
+	key := utils.HashDJB2(str)
+	program, _ := cache.programs[key]
 	if program == nil {
 		var err error
 		program, err = expr.Compile(str)
 		if err != nil {
 			return str, err
 		}
-		cache.programs[utils.HashDJB2(str)] = program
+		cache.programs[key] = program
 	}
 
 	result, err := expr.Run(program, map[string]any{"value": value, "parent": parentValue, "index": valueIndex})
