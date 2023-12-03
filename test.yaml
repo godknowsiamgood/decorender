@@ -5,18 +5,25 @@ font: Roboto 14
 scale: 1
 innerDirection: row
 innerGap: 10
+sample:
+  defaultColor: white
+  StringsSlice:
+    - one
+    - two
+    - three
+    - four
 inner:
 
   # Simple rectangle
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     inner:
       - size: 100% 50%
         bkgColor: blue
 
   # Auto size
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     inner:
       - bkgColor: coral
@@ -35,7 +42,7 @@ inner:
 
   # Autosize with text
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     inner:
       - bkgColor: coral
@@ -48,7 +55,7 @@ inner:
 
   # Wrapping
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     inner:
       - forEach: 11
@@ -57,7 +64,7 @@ inner:
 
   # Wrapping align end
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     justify: end
     inner:
@@ -67,7 +74,7 @@ inner:
 
   # Wrapping align center
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     justify: center
     inner:
@@ -77,7 +84,7 @@ inner:
 
   # Wrapping align
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     justify: space-between
     inner:
@@ -87,7 +94,7 @@ inner:
 
   # Wrapping align center
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     justify: center
     innerGap: 5
@@ -98,7 +105,7 @@ inner:
 
   # Padding
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     padding: 10
     innerDirection: row
     inner:
@@ -108,7 +115,7 @@ inner:
 
   # Text
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     color: black
     inner:
       - text: One two three four five six
@@ -119,7 +126,7 @@ inner:
 
   # Absolute positions
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     padding: 5
     inner:
       - size: 10 10
@@ -149,7 +156,7 @@ inner:
 
   # Absolute positions 2
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     padding: 5
     inner:
       - size: 10 10
@@ -167,7 +174,7 @@ inner:
 
   # Absolute positions 3
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     padding: 5
     inner:
       - size: 10 10
@@ -179,7 +186,7 @@ inner:
 
   # Images
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     inner:
       - size: 50 50
@@ -192,7 +199,7 @@ inner:
 
   # Images with border radius
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     inner:
       - size: 50 50
@@ -212,7 +219,7 @@ inner:
 
   # Borders
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     innerGap: 5
     justify: space-evenly
@@ -241,7 +248,7 @@ inner:
 
   # Borders
   - size: 100 100
-    bkgColor: white
+    bkgColor: ~ defaultColor
     innerDirection: row
     inner:
       - size: 50 50
@@ -255,7 +262,7 @@ inner:
             absolute: right bottom
 
   # For each
-  - bkgColor: white
+  - bkgColor: ~ defaultColor
     innerDirection: row
     size: 100 100
     innerGap: 2
@@ -268,7 +275,7 @@ inner:
         text: "~ value + ' ' + string(100 / len(parent)) + ' ' + string(findIndex(parent, # == value))"
 
   # Absolute test
-  - bkgColor: white
+  - bkgColor: ~ defaultColor
     innerDirection: row
     size: 100 100
     inner:

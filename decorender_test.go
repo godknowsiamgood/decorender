@@ -12,14 +12,8 @@ func TestFull(t *testing.T) {
 		return
 	}
 
-	data := struct {
-		StringsSlice []string
-	}{
-		StringsSlice: []string{"one", "two", "three", "four"},
-	}
-
-	err = d.RenderToFile(data, "test.png", &RenderOptions{
-		UseSample: false,
+	err = d.RenderToFile(nil, "test.png", &RenderOptions{
+		UseSample: true,
 	})
 
 	if err != nil {
