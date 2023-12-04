@@ -51,10 +51,6 @@ img, _ := renderer.Render(yourData, &decorender.RenderOptions{})
 renderer.RenderAndWrite(yourData, decorender.EncodeFormatPNG, writer, &decorender.RenderOptions{})
 renderer.RenderToFile(yourData, "result.jpg", &decorender.RenderOptions{})
 ```
-## Concept
-NewRenderer parses a YAML file with layout, validates the data, compiles templates, initializes the necessary data and caches, and returns an object that is then used for rendering with data.
-
-Usually, one YAML layout is enough to modify the layout using templates.
 
 ## Format
 
