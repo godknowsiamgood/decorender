@@ -84,7 +84,8 @@ func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 			state.dst = utils.NewRGBAImageFromPool(int(math.Ceil(n.Size.W+borderOffset*2)), int(math.Ceil(n.Size.H+borderOffset*2)))
 
 			if err := drawNode(state.dst, n, borderOffset, borderOffset, dc); err != nil {
-				return stack[0].dst, err
+				utils.ReleaseImage(state.dst)
+				return nil, err
 			}
 
 			// Next world position is just current node padding
@@ -94,7 +95,7 @@ func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 			}
 		} else {
 			if err := drawNode(state.dst, n, state.pos.Left+n.Pos.Left, state.pos.Top+n.Pos.Top, dc); err != nil {
-				return stack[0].dst, err
+				return nil, err
 			}
 
 			// Next world position is previous world + current node local position + current node padding
