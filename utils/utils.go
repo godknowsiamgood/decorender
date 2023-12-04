@@ -46,8 +46,8 @@ func (s *TopRightBottomLeft) Bottom() float64 {
 }
 
 type AbsolutePos struct {
-	Has    bool
 	Offset float64
+	Has    bool
 }
 type AbsolutePosition [4]AbsolutePos
 
