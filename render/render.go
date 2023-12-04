@@ -17,7 +17,7 @@ import (
 )
 
 /*
-	Ideally, all positioning, including absolute coordinates, should be handled during the layout phase.
+	Ideally, all positioning, including absolute world coordinates, should be handled during the layout phase.
 	However, only local coordinates and sizes are calculated at layout stage.
 	The computation of the final world position is performed during the rendering phase.
 	This is solely due to one factor: if an element has a rotation,
