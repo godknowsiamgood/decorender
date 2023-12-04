@@ -76,10 +76,18 @@ func applyBorderRadius(cache *Cache, src *image.RGBA, radii utils.FourValues) {
 					}
 				}
 
-				src.Pix[srcIdx+3] = min(maskAlpha, existingAlpha)
+				src.Pix[srcIdx+3] = minUint8(maskAlpha, existingAlpha)
 			}
 		}
 	})
+}
+
+func minUint8(a, b uint8) uint8 {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
 
 func copyImage(dst draw.Image, src image.Image) {

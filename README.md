@@ -4,8 +4,14 @@ A library for declarative rendering on the backend. Considering that there is no
 
 ![image](https://github.com/godknowsiamgood/decorender/assets/5710885/6b6536a6-b208-4abb-ade1-70b613075695)
 
-
 ## Usage
+The layout is described using a yaml file, in which templates can be used to customize any field.
+
+`decorender.NewRenderer` parses this yaml file with your markup, validates the data, compiles the templates, initializes the necessary data, caches, and returns an object that is then used for frequent rendering with data.
+
+To make layout process easier and more convenient, decorender has a dev server with auto-reloading and error display. An example of its use is shown below.
+
+### Usage with dev server
 Create file `layout.yaml` with minimal content:
 ```yaml
 text: Hello, world!
@@ -26,7 +32,7 @@ Start dev server. It will open page with autoreload and some useful information.
 decorender_server layout.yaml
 ```
 
-## Usage on your backend
+### Then on your backend
 
 ```
 go get -u github.com/godknowsiamgood/decorender
@@ -43,8 +49,12 @@ renderer, err := decorender.NewRenderer("./layout.yaml", &decorender.Options{
 // with different data and concurrent-safely.
 img, _ := renderer.Render(yourData, &decorender.RenderOptions{})
 renderer.RenderAndWrite(yourData, decorender.EncodeFormatPNG, writer, &decorender.RenderOptions{})
-renderer.RenderToFile(yourData, "result.jpg", &decorender.Options{})
+renderer.RenderToFile(yourData, "result.jpg", &decorender.RenderOptions{})
 ```
+## Concept
+NewRenderer parses a YAML file with layout, validates the data, compiles templates, initializes the necessary data and caches, and returns an object that is then used for rendering with data.
+
+Usually, one YAML layout is enough to modify the layout using templates.
 
 ## Format
 
@@ -80,8 +90,8 @@ inner:                  # - Child nodes.
 ```
 See `test.yaml` and `test.png` for more examples.
 
-### Expr
-In almost any field, you can use an expression instead of a fixed one. `github.com/antonmedv/expr` is used. In the context, there is a variable `value`, which is the current object. Inside `forEach`, there is also `parentValue`. Just start field with `~` symbol.
+### Templates with Expr
+In almost any field, you can use an expression instead of a fixed one. `github.com/antonmedv/expr` is used. Just write `~ Field` to access to field. In the context of loops there are variables `value`, `index` and `parent`.
 
 ## Performance
 
