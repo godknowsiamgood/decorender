@@ -37,11 +37,37 @@ func main() {
 	var renderer *decorender.Decorender
 	var rendererErr error
 
-	rand.Seed(time.Now().UnixMilli())
 	var ver = rand.Intn(999999)
 
 	var info string
 	var mx sync.Mutex
+
+	renderMultipleTimes := func(encodeTo decorender.EncodeFormat) (time.Duration, int, error) {
+		var minTime time.Duration = math.MaxInt64
+		var bytesCount int
+
+		options := decorender.RenderOptions{UseSample: true}
+
+		for i := 0; i < 3; i++ {
+			start := time.Now()
+
+			var writer CountingWriter
+
+			rendererErr = renderer.RenderAndWrite(nil, encodeTo, &writer, &options)
+			dur := time.Now().Sub(start)
+			if dur < minTime {
+				minTime = dur
+			}
+
+			if rendererErr != nil || dur > time.Second*3 {
+				return 0, 0, rendererErr
+			}
+
+			bytesCount = writer.count
+		}
+
+		return minTime, bytesCount, nil
+	}
 
 	updateRenderer := func() {
 		mx.Lock()
@@ -50,46 +76,27 @@ func main() {
 		info = ""
 		renderer, rendererErr = decorender.NewRenderer(layoutFileName, nil)
 		if rendererErr == nil {
-			var minTime time.Duration = math.MaxInt64
+			var timeRender time.Duration
+			var timeWithPNGEncode time.Duration
+			var timeWithJGPEncode time.Duration
 
-			for i := 0; i < 5; i++ {
-				start := time.Now()
-				rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatPNG, nil, &decorender.RenderOptions{UseSample: true})
-				dur := time.Now().Sub(start)
-				if dur < minTime {
-					minTime = dur
-				}
+			var pngBytes int
+			var jpegBytes int
 
-				if rendererErr != nil || dur > time.Second*2 {
-					break
-				}
-			}
-
-			var timeWithPNGEncode int64
-			var timeWithJGPEncode int64
-
-			pngCounter := CountingWriter{}
-
-			start := time.Now()
-			rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatPNG, &pngCounter, &decorender.RenderOptions{UseSample: true})
+			timeRender, _, rendererErr = renderMultipleTimes(decorender.EncodeFormatNone)
 			if rendererErr == nil {
-				timeWithPNGEncode = time.Now().Sub(start).Milliseconds()
-			}
-
-			jpgCounter := CountingWriter{}
-
-			start = time.Now()
-			rendererErr = renderer.RenderAndWrite(nil, decorender.EncodeFormatJPG, &jpgCounter, &decorender.RenderOptions{UseSample: true, Quality: 0.95})
-			if rendererErr == nil {
-				timeWithJGPEncode = time.Now().Sub(start).Milliseconds()
+				timeWithPNGEncode, pngBytes, rendererErr = renderMultipleTimes(decorender.EncodeFormatPNG)
+				if rendererErr == nil {
+					timeWithJGPEncode, jpegBytes, rendererErr = renderMultipleTimes(decorender.EncodeFormatJPG)
+				}
 			}
 
 			if rendererErr == nil {
 				ver += 1
 				info = fmt.Sprintf("render in %.3fs, to png +%.3fs (%s), to jpg +%.3fs (%s)",
-					float64(minTime.Milliseconds())/1000.0,
-					float64(timeWithPNGEncode)/1000.0, bytesToHumanReadable(pngCounter.count),
-					float64(timeWithJGPEncode)/1000.0, bytesToHumanReadable(jpgCounter.count))
+					float64(timeRender.Milliseconds())/1000.0,
+					float64(timeWithPNGEncode.Milliseconds())/1000.0, bytesToHumanReadable(pngBytes),
+					float64(timeWithJGPEncode.Milliseconds())/1000.0, bytesToHumanReadable(jpegBytes))
 			}
 		}
 	}
@@ -196,18 +203,18 @@ func watchFile(filePath string, action func()) {
 }
 
 type CountingWriter struct {
-	count int64
+	count int
 	mx    sync.Mutex
 }
 
 func (cw *CountingWriter) Write(p []byte) (n int, err error) {
 	cw.mx.Lock()
 	defer cw.mx.Unlock()
-	cw.count += int64(len(p))
+	cw.count += len(p)
 	return len(p), nil
 }
 
-func bytesToHumanReadable(bytes int64) string {
+func bytesToHumanReadable(bytes int) string {
 	const (
 		KB = 1024
 		MB = 1024 * KB

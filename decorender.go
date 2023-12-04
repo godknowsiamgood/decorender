@@ -27,7 +27,8 @@ var NothingToRenderErr = errors.New("nothing to render")
 type EncodeFormat uint
 
 const (
-	EncodeFormatPNG EncodeFormat = iota
+	EncodeFormatNone EncodeFormat = iota
+	EncodeFormatPNG
 	EncodeFormatJPG
 )
 
@@ -126,6 +127,7 @@ func (r *Decorender) RenderAndWrite(userData any, format EncodeFormat, w io.Writ
 			return jpeg.Encode(w, dst, &jpeg.Options{
 				Quality: lo.Ternary(opts == nil || opts.Quality < math.SmallestNonzeroFloat64, 95, int(100*opts.Quality)),
 			})
+		default:
 		}
 	}
 
