@@ -2,7 +2,7 @@ package layout
 
 import (
 	"fmt"
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"image/color"
 	"testing"
