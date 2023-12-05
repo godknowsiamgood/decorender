@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/bluele/gcache"
-	"github.com/godknowsiamgood/decorender/layout"
+	"github.com/godknowsiamgood/decorender/internal/layout"
+	resources_internal "github.com/godknowsiamgood/decorender/internal/resources"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"github.com/godknowsiamgood/decorender/resources"
-	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/nasa9084/go-builderpool"
 	"image"
 	"io"
@@ -105,7 +106,7 @@ func (c *Cache) useScaledImage(fileName string, w, h float64, sizeType layout.Bk
 }
 
 func (c *Cache) getResourceContent(fileName string) ([]byte, error) {
-	if resources.IsLocalResource(fileName) {
+	if resources_internal.IsLocalResource(fileName) {
 		f, err := c.localImages.Open(fileName)
 		if err != nil {
 			return nil, err

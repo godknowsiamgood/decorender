@@ -3,9 +3,9 @@ package render
 import (
 	"fmt"
 	"github.com/disintegration/imaging"
-	"github.com/godknowsiamgood/decorender/fonts"
-	"github.com/godknowsiamgood/decorender/layout"
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/fonts"
+	"github.com/godknowsiamgood/decorender/internal/layout"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/fixed"
 	"image"

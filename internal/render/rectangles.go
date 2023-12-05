@@ -1,7 +1,7 @@
 package render
 
 import (
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/vector"
 	"image"

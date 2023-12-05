@@ -3,7 +3,7 @@ package layout
 import (
 	"fmt"
 	"github.com/antonmedv/expr"
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"reflect"
 	"strconv"
 	"strings"

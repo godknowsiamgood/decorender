@@ -3,12 +3,13 @@ package decorender
 import (
 	"errors"
 	"fmt"
-	"github.com/godknowsiamgood/decorender/fonts"
-	"github.com/godknowsiamgood/decorender/layout"
-	"github.com/godknowsiamgood/decorender/parsing"
-	"github.com/godknowsiamgood/decorender/render"
+	"github.com/godknowsiamgood/decorender/internal/fonts"
+	"github.com/godknowsiamgood/decorender/internal/layout"
+	"github.com/godknowsiamgood/decorender/internal/parsing"
+	"github.com/godknowsiamgood/decorender/internal/render"
+	resources_internal "github.com/godknowsiamgood/decorender/internal/resources"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"github.com/godknowsiamgood/decorender/resources"
-	"github.com/godknowsiamgood/decorender/utils"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 	"image"
@@ -91,7 +92,7 @@ func NewRenderer(yamlFileName string, opts *Options) (*Decorender, error) {
 	if opts != nil && opts.ExternalImage != nil {
 		dr.externalImage = opts.ExternalImage
 	} else {
-		dr.externalImage = resources.NewDefaultExternalImage()
+		dr.externalImage = resources_internal.NewDefaultExternalImage()
 	}
 
 	if opts != nil && opts.LocalFiles != nil {

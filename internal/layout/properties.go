@@ -3,9 +3,9 @@ package layout
 import (
 	"errors"
 	"fmt"
-	"github.com/godknowsiamgood/decorender/fonts"
-	"github.com/godknowsiamgood/decorender/parsing"
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/fonts"
+	"github.com/godknowsiamgood/decorender/internal/parsing"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"

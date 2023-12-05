@@ -1,7 +1,8 @@
 package resources
 
 import (
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/utils"
+	"github.com/godknowsiamgood/decorender/resources"
 	"io"
 	"net/http"
 	"os"
@@ -9,17 +10,12 @@ import (
 	"sync"
 )
 
-type ExternalImage interface {
-	Prefetch(path string)
-	Get(path string) ([]byte, error)
-}
-
 type DefaultExternalImage struct {
 	downloadsInProgress   map[string]chan struct{}
 	downloadsInProgressMx sync.Mutex
 }
 
-func NewDefaultExternalImage() ExternalImage {
+func NewDefaultExternalImage() resources.ExternalImage {
 	return &DefaultExternalImage{
 		downloadsInProgress: make(map[string]chan struct{}),
 	}

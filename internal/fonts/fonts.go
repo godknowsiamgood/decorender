@@ -3,7 +3,7 @@ package fonts
 import (
 	_ "embed"
 	"fmt"
-	"github.com/godknowsiamgood/decorender/parsing"
+	"github.com/godknowsiamgood/decorender/internal/parsing"
 	"golang.org/x/exp/slices"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"

@@ -1,8 +1,8 @@
 package layout
 
 import (
-	"github.com/godknowsiamgood/decorender/fonts"
-	"github.com/godknowsiamgood/decorender/utils"
+	"github.com/godknowsiamgood/decorender/internal/fonts"
+	"github.com/godknowsiamgood/decorender/internal/utils"
 	"golang.org/x/text/unicode/norm"
 	"strings"
 	"unicode"
