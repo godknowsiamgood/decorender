@@ -194,6 +194,8 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error
 	pt := fixed.P(int(left), int(top+offset))
 	ptY := pt.Y
 
+	colorUniform := image.Uniform{C: n.Props.FontColor}
+
 	for _, r := range n.Text {
 		r = utils.SimplifyRune(r)
 
@@ -211,7 +213,7 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error
 			continue
 		}
 
-		draw.DrawMask(dst, dr.Bounds(), image.NewUniform(n.Props.FontColor), image.Point{}, mask, maskPoint, draw.Over)
+		draw.DrawMask(dst, dr.Bounds(), &colorUniform, image.Point{}, mask, maskPoint, draw.Over)
 		pt.X += advance
 	}
 

@@ -9,7 +9,7 @@ import (
 
 var imagesBufPool = sync.Pool{
 	New: func() any {
-		return make([]byte, 4*500*500)
+		return make([]byte, 4*100*100)
 	},
 }
 
