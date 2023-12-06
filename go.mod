@@ -3,7 +3,7 @@ module github.com/godknowsiamgood/decorender
 go 1.20
 
 require (
-	github.com/antonmedv/expr v1.15.4
+	github.com/antonmedv/expr v1.15.0
 	github.com/bluele/gcache v0.0.2
 	github.com/disintegration/imaging v1.6.2
 	github.com/fsnotify/fsnotify v1.7.0
