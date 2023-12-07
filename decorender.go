@@ -3,15 +3,6 @@ package decorender
 import (
 	"errors"
 	"fmt"
-	"github.com/godknowsiamgood/decorender/internal/fonts"
-	"github.com/godknowsiamgood/decorender/internal/layout"
-	"github.com/godknowsiamgood/decorender/internal/parsing"
-	"github.com/godknowsiamgood/decorender/internal/render"
-	resources_internal "github.com/godknowsiamgood/decorender/internal/resources"
-	"github.com/godknowsiamgood/decorender/internal/utils"
-	"github.com/godknowsiamgood/decorender/resources"
-	"github.com/samber/lo"
-	"gopkg.in/yaml.v3"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -21,6 +12,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/godknowsiamgood/decorender/internal/fonts"
+	"github.com/godknowsiamgood/decorender/internal/layout"
+	"github.com/godknowsiamgood/decorender/internal/parsing"
+	"github.com/godknowsiamgood/decorender/internal/render"
+	resources_internal "github.com/godknowsiamgood/decorender/internal/resources"
+	"github.com/godknowsiamgood/decorender/internal/utils"
+	"github.com/godknowsiamgood/decorender/resources"
+	"github.com/samber/lo"
+	"gopkg.in/yaml.v3"
 )
 
 var NothingToRenderErr = errors.New("nothing to render")
@@ -69,9 +70,12 @@ func NewRenderer(yamlFileName string, opts *Options) (*Decorender, error) {
 	if err != nil {
 		return nil, err
 	}
+	return NewRendererWithTemplate(content, opts)
+}
 
+func NewRendererWithTemplate(template []byte, opts *Options) (*Decorender, error) {
 	node := yaml.Node{}
-	err = yaml.Unmarshal(content, &node)
+	err := yaml.Unmarshal(template, &node)
 	if err != nil {
 		return nil, err
 	}
