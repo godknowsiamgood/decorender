@@ -288,3 +288,19 @@ inner:
             size: 10 10
             bkgColor: blue
             id: abs
+
+  # Text wrap with hyphen
+  - bkgColor: ~ defaultColor
+    size: 100 100
+    fontColor: black
+    inner:
+      - text: Wrapp with-hyphen
+      - text: Another loooong string
+      - text: Another loooooooong
+
+  # Text wrap 2
+  - bkgColor: ~ defaultColor
+    size: 100 100
+    fontColor: black
+    inner:
+      - text: Another loooooooooooong ssss loooooooooooong loooooooooooong

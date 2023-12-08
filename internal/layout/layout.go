@@ -150,33 +150,33 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				var currentInRowIndex int
 				var currentWidth float64
 
-				var prevInRow *Node
-				nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
-					if !cn.IsAbsolutePositioned() {
-						if props.IsWrappingEnabled && currentWidth+cn.Size.W > newContext.size.W && cn.Size.W < newContext.size.W {
+				var prevNodeInRow *Node
+				nodes.IterateChildNodes(childrenNodesLevel, from, func(node *Node) {
+					if !node.IsAbsolutePositioned() {
+						if props.IsWrappingEnabled && currentWidth+node.Size.W > newContext.size.W {
 							currentWidth = 0
 							currentRowIndex += 1
 							currentInRowIndex = 0
 
 							// Maybe we can wrap whole-hyphened word to look it better
-							if prevInRow != nil && prevInRow.TextHasHyphenAtEnd {
-								wholeWidth := prevInRow.Size.W + cn.Size.W
+							if prevNodeInRow != nil && prevNodeInRow.TextHasHyphenAtEnd {
+								wholeWidth := prevNodeInRow.Size.W + node.Size.W
 								if wholeWidth <= newContext.size.W {
-									prevInRow.InRowIndex = currentRowIndex
-									prevInRow.RowIndex = 0
+									prevNodeInRow.InRowIndex = 0
+									prevNodeInRow.RowIndex = currentRowIndex
 									currentInRowIndex = 1
 								}
 							}
 
-							prevInRow = nil
+							prevNodeInRow = nil
 						}
-						currentWidth += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + props.InnerGap
+						currentWidth += node.Size.W + lo.Ternary(node.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + props.InnerGap
 					}
 
-					cn.RowIndex = currentRowIndex
-					cn.InRowIndex = currentInRowIndex
+					node.RowIndex = currentRowIndex
+					node.InRowIndex = currentInRowIndex
 					currentInRowIndex += 1
-					prevInRow = cn
+					prevNodeInRow = node
 				})
 
 				if text != "" {
