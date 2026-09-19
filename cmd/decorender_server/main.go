@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/godknowsiamgood/decorender"
-	"github.com/samber/lo"
 	"log"
 	"math"
 	"math/rand"
@@ -118,10 +117,14 @@ func main() {
 		defer mx.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
+		errText := ""
+		if rendererErr != nil {
+			errText = rendererErr.Error()
+		}
 		jsonData, _ := json.Marshal(map[string]string{
 			"ver":  strconv.Itoa(ver),
 			"info": info,
-			"err":  lo.Ternary(rendererErr != nil, fmt.Sprintf("%v", rendererErr), ""),
+			"err":  errText,
 		})
 		_, _ = w.Write(jsonData)
 	})

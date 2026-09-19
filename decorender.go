@@ -20,11 +20,15 @@ import (
 	resources_internal "github.com/godknowsiamgood/decorender/internal/resources"
 	"github.com/godknowsiamgood/decorender/internal/utils"
 	"github.com/godknowsiamgood/decorender/resources"
-	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 )
 
 var NothingToRenderErr = errors.New("nothing to render")
+
+const (
+	defaultJPEGQuality    = 95
+	defaultImageCacheSize = 30
+)
 
 type EncodeFormat uint
 
@@ -61,6 +65,7 @@ type Decorender struct {
 	root          parsing.Node
 	layoutCache   *layout.Cache
 	renderCache   *render.Cache
+	fonts         *fonts.Registry
 	externalImage resources.ExternalImage
 	localFiles    fs.FS
 }
@@ -105,12 +110,25 @@ func NewRendererWithTemplate(template []byte, opts *Options) (*Decorender, error
 		dr.localFiles = os.DirFS(".")
 	}
 
-	imagesCacheSize := lo.Ternary(opts != nil && opts.NoImageCache, 0, 30)
+	imagesCacheSize := defaultImageCacheSize
+	if opts != nil && opts.NoImageCache {
+		imagesCacheSize = 0
+	}
 
 	dr.layoutCache = layout.NewCache()
 	dr.renderCache = render.NewCache(dr.externalImage, dr.localFiles, imagesCacheSize)
 
-	if err = fonts.LoadFaces(root.FontFaces, dr.localFiles); err != nil {
+	faceTemplates := make([]fonts.FaceTemplate, len(root.FontFaces))
+	for i, ff := range root.FontFaces {
+		faceTemplates[i] = fonts.FaceTemplate{
+			Family: ff.Family,
+			Style:  ff.Style,
+			Weight: ff.Weight,
+			File:   ff.File,
+		}
+	}
+
+	if dr.fonts, err = fonts.NewRegistry(faceTemplates, dr.localFiles); err != nil {
 		return nil, err
 	}
 
@@ -129,9 +147,13 @@ func (r *Decorender) RenderAndWrite(userData any, format EncodeFormat, w io.Writ
 		case EncodeFormatPNG:
 			return png.Encode(w, dst)
 		case EncodeFormatJPG:
-			return jpeg.Encode(w, dst, &jpeg.Options{
-				Quality: lo.Ternary(opts == nil || opts.Quality < math.SmallestNonzeroFloat64, 95, int(100*opts.Quality)),
-			})
+			// Note: this must not use a ternary helper - both branches would be
+			// evaluated, dereferencing opts even when it is nil.
+			quality := defaultJPEGQuality
+			if opts != nil && opts.Quality >= math.SmallestNonzeroFloat64 {
+				quality = int(100 * opts.Quality)
+			}
+			return jpeg.Encode(w, dst, &jpeg.Options{Quality: quality})
 		default:
 		}
 	}
@@ -142,14 +164,22 @@ func (r *Decorender) RenderAndWrite(userData any, format EncodeFormat, w io.Writ
 // Render renders layout to image. Images are pooled resource,
 // so make sure to call release function when you are done with image.
 func (r *Decorender) Render(userData any, opts *RenderOptions) (dst image.Image, release func(), err error) {
-	userData = lo.Ternary(opts != nil && opts.UseSample, r.root.Sample, userData)
+	if opts != nil && opts.UseSample {
+		userData = r.root.Sample
+	}
+
+	// Font faces are not safe to share between goroutines, so every render
+	// works with its own set, returned to the registry when the render is done.
+	faces := r.fonts.AcquireFaceSet()
+	defer r.fonts.ReleaseFaceSet(faces)
 
 	// First phase is layout
 
-	nodes, err := layout.Do(r.root, userData, r.externalImage, r.layoutCache)
+	nodes, err := layout.Do(r.root, userData, r.externalImage, r.layoutCache, faces)
 	if err != nil {
 		return nil, nil, err
 	}
+	defer layout.Release(nodes)
 
 	root := nodes.GetRootNode()
 	if root == nil || root.Size.W < 0.01 || root.Size.H < 0.01 {
@@ -158,12 +188,10 @@ func (r *Decorender) Render(userData any, opts *RenderOptions) (dst image.Image,
 
 	// Second phase is render
 
-	dst, err = render.Do(nodes, r.renderCache)
+	dst, err = render.Do(nodes, r.renderCache, faces)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	layout.Release(nodes)
 
 	return dst, func() {
 		utils.ReleaseImage(dst)

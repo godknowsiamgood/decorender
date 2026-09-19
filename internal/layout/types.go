@@ -3,7 +3,6 @@ package layout
 import (
 	"github.com/godknowsiamgood/decorender/internal/fonts"
 	"github.com/godknowsiamgood/decorender/internal/utils"
-	"golang.org/x/image/font"
 	"image/color"
 )
 
@@ -46,7 +45,6 @@ type Node struct {
 	Image              string
 	TextHasHyphenAtEnd bool
 	Level              int
-	Face               font.Face
 
 	RowIndex   int
 	InRowIndex int

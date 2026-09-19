@@ -26,7 +26,7 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 
 		node := Node{
 			Size: utils.Size{
-				W: fonts.MeasureTextWidth(t, context.props.FontDescription),
+				W: context.faces.MeasureTextWidth(t, context.props.FontDescription),
 				H: height,
 			},
 			Props: CalculatedProperties{
@@ -42,7 +42,7 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 		*nodes = append(*nodes, node)
 	}
 
-	return fonts.MeasureTextWidth(" ", context.props.FontDescription)
+	return context.faces.MeasureTextWidth(" ", context.props.FontDescription)
 }
 
 func splitText(input string) []string {
@@ -55,7 +55,7 @@ func splitText(input string) []string {
 	input = norm.NFC.String(input)
 
 	for _, r := range input {
-		if unicode.IsSpace(r) && r != nonBreakable {
+		if unicode.IsSpace(r) && r != nonBreakable || r == '\n' {
 			if token.Len() > 0 {
 				result = append(result, token.String())
 				token.Reset()
@@ -77,7 +77,7 @@ func splitText(input string) []string {
 }
 
 // Little tricky method to merge texts nodes in rows into one node per row for optimized rendering
-func mergeTextNodes(nodes *Nodes, level int, from int) {
+func mergeTextNodes(nodes *Nodes, level int, from int, faces *fonts.FaceSet) {
 	var sb strings.Builder
 
 	originalFrom := from
@@ -93,8 +93,11 @@ func mergeTextNodes(nodes *Nodes, level int, from int) {
 			last = n
 			from++
 		})
+		if last == nil {
+			return
+		}
 		last.Text = sb.String()
-		last.Size.W = fonts.MeasureTextWidth(last.Text, last.Props.FontDescription)
+		last.Size.W = faces.MeasureTextWidth(last.Text, last.Props.FontDescription)
 		last.InRowIndex = 0
 
 		(*nodes)[originalFrom+index] = *last

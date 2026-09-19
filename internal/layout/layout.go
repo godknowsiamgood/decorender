@@ -6,7 +6,6 @@ import (
 	"github.com/godknowsiamgood/decorender/internal/parsing"
 	"github.com/godknowsiamgood/decorender/internal/utils"
 	"github.com/godknowsiamgood/decorender/resources"
-	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"
 	"math"
@@ -21,6 +20,7 @@ type layoutPhaseContext struct {
 
 	externalImage resources.ExternalImage
 	cache         *Cache
+	faces         *fonts.FaceSet
 }
 
 var nodesPool = sync.Pool{
@@ -29,7 +29,7 @@ var nodesPool = sync.Pool{
 	},
 }
 
-func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage, cache *Cache) (Nodes, error) {
+func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage, cache *Cache, faces *fonts.FaceSet) (Nodes, error) {
 	nodes := nodesPool.Get().(Nodes)
 
 	err := doLayoutNode(pn, &nodes, layoutPhaseContext{
@@ -47,6 +47,7 @@ func Do(pn parsing.Node, userData any, externalImage resources.ExternalImage, ca
 		level:         -1,
 		externalImage: externalImage,
 		cache:         cache,
+		faces:         faces,
 	}, userData, nil, 0)
 
 	if err != nil {
@@ -170,7 +171,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 							prevNodeInRow = nil
 						}
-						currentWidth += node.Size.W + lo.Ternary(node.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + props.InnerGap
+						currentWidth += node.Size.W + whitespaceAfter(node, textWhitespaceWidth) + props.InnerGap
 					}
 
 					node.RowIndex = currentRowIndex
@@ -180,7 +181,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				})
 
 				if text != "" {
-					mergeTextNodes(nodes, childrenNodesLevel, from)
+					mergeTextNodes(nodes, childrenNodesLevel, from, newContext.faces)
 				}
 			} else {
 				i := 0
@@ -205,7 +206,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 						}
 						cn.Pos.Left = offset
 						cn.Pos.Top = top
-						offset += cn.Size.W + lo.Ternary(cn.TextHasHyphenAtEnd, 0, textWhitespaceWidth) + gap
+						offset += cn.Size.W + whitespaceAfter(cn, textWhitespaceWidth) + gap
 						maxHeight = math.Max(maxHeight, cn.Size.H)
 					})
 
@@ -299,4 +300,13 @@ func getJustifyOffsetAndGap(justifyProp string, gapProp float64, totalSize float
 	}
 	gap = math.Max(gap, gapProp)
 	return offset, gap
+}
+
+// whitespaceAfter is the gap that follows a node on its row. A token ending in
+// a hyphen joins the next one directly, so it contributes no whitespace.
+func whitespaceAfter(n *Node, textWhitespaceWidth float64) float64 {
+	if n.TextHasHyphenAtEnd {
+		return 0
+	}
+	return textWhitespaceWidth
 }

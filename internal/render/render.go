@@ -2,14 +2,12 @@ package render
 
 import (
 	"fmt"
-	"github.com/disintegration/imaging"
 	"github.com/godknowsiamgood/decorender/internal/fonts"
 	"github.com/godknowsiamgood/decorender/internal/layout"
 	"github.com/godknowsiamgood/decorender/internal/utils"
 	"golang.org/x/image/draw"
 	"golang.org/x/image/math/fixed"
 	"image"
-	"image/color"
 	"math"
 	"sync"
 )
@@ -24,6 +22,7 @@ import (
 
 type drawContext struct {
 	cache *Cache
+	faces *fonts.FaceSet
 }
 
 // drawState represents the current state in the rendering stack
@@ -40,7 +39,7 @@ var stacksPool = sync.Pool{
 	},
 }
 
-func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
+func Do(nodes layout.Nodes, cache *Cache, faces *fonts.FaceSet) (*image.RGBA, error) {
 	stack := stacksPool.Get().(utils.Stack[drawState])
 
 	defer func() {
@@ -62,6 +61,7 @@ func Do(nodes layout.Nodes, cache *Cache) (*image.RGBA, error) {
 
 	dc := drawContext{
 		cache: cache,
+		faces: faces,
 	}
 
 	// Due to the nature of storing nodes in a one-dimensional array (see comments in the layout package),
@@ -127,7 +127,7 @@ func popupStack(stack *utils.Stack[drawState], level int) {
 		if state.dst != upperState.dst && upperState.dst != nil {
 			// at this moment only case when destination may differ is rotation
 			// so perform rotation of image and then render it on image upper on stack
-			rotated := imaging.Rotate(state.dst, state.node.Props.Rotation, color.RGBA{})
+			rotated := rotateImage(state.dst, state.node.Props.Rotation)
 			rotatedBounds := rotated.Bounds()
 
 			// rotated image has different sizes, so we have to center it
@@ -139,6 +139,7 @@ func popupStack(stack *utils.Stack[drawState], level int) {
 				int(upperState.pos.Left+left)-dx/2, int(upperState.pos.Top+top)-dy/2,
 				int(upperState.pos.Left+left)-dx/2+rotatedBounds.Dx(), int(upperState.pos.Top+top)-dy/2+rotatedBounds.Dy())
 			draw.Draw(upperState.dst, bounds, rotated, image.Point{}, draw.Over)
+			utils.ReleaseImage(rotated)
 			utils.ReleaseImage(state.dst)
 		}
 
@@ -172,7 +173,7 @@ func drawNode(dst *image.RGBA, n *layout.Node, left float64, top float64, dc dra
 	}
 
 	if n.Text != "" {
-		if err := renderText(dst, n, left, top); err != nil {
+		if err := renderText(dst, n, left, top, dc.faces); err != nil {
 			return err
 		}
 	}
@@ -184,8 +185,8 @@ func drawNode(dst *image.RGBA, n *layout.Node, left float64, top float64, dc dra
 	return nil
 }
 
-func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error {
-	face, err := fonts.GetFontFace(n.Props.FontDescription)
+func renderText(dst draw.Image, n *layout.Node, left float64, top float64, faces *fonts.FaceSet) error {
+	face, err := faces.Face(n.Props.FontDescription)
 	if err != nil {
 		return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
 	}
@@ -194,7 +195,8 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error
 	pt := fixed.P(int(left), int(top+offset))
 	ptY := pt.Y
 
-	colorUniform := image.Uniform{C: n.Props.FontColor}
+	colorUniform := getUniform(n.Props.FontColor)
+	defer uniformPool.Put(colorUniform)
 
 	for _, r := range n.Text {
 		r = utils.SimplifyRune(r)
@@ -213,7 +215,7 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64) error
 			continue
 		}
 
-		draw.DrawMask(dst, dr.Bounds(), &colorUniform, image.Point{}, mask, maskPoint, draw.Over)
+		draw.DrawMask(dst, dr.Bounds(), colorUniform, image.Point{}, mask, maskPoint, draw.Over)
 		pt.X += advance
 	}
 

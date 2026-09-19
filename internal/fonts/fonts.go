@@ -3,21 +3,33 @@ package fonts
 import (
 	_ "embed"
 	"fmt"
-	"github.com/godknowsiamgood/decorender/internal/parsing"
-	"golang.org/x/exp/slices"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/opentype"
 	"io"
 	"io/fs"
 	"math"
+	"slices"
 	"strconv"
 	"sync"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/opentype"
 )
 
 //go:embed default.ttf
 var defaultFontFile []byte
 
 const DefaultFamily = "Roboto"
+
+// maxCachedFaces caps how many realized faces a single FaceSet keeps.
+// Layouts with expression-driven font sizes can otherwise grow it without bound.
+const maxCachedFaces = 64
+
+// FaceTemplate describes a font face to load, as declared in a layout.
+type FaceTemplate struct {
+	Family string
+	Style  string
+	Weight string
+	File   string
+}
 
 type FaceDescription struct {
 	Family string
@@ -31,62 +43,192 @@ type loadedFontFace struct {
 	style  font.Style
 	weight int
 	font   *opentype.Font
-	uri    string
 }
 
-var loadedFaces []loadedFontFace
-var loadedFacesMx sync.RWMutex
+// Registry holds the parsed fonts of a single renderer.
+//
+// *opentype.Font is safe to share between goroutines (sfnt documents that Font
+// methods are concurrent-safe as long as each call uses a different Buffer), so
+// the registry itself is immutable once built and can be shared freely.
+// font.Face is NOT safe to share, because it owns the glyph buffer - realized
+// faces live in a FaceSet instead, one per in-flight render.
+type Registry struct {
+	faces []loadedFontFace
+	// defaultFont is the embedded fallback, used whenever no declared face
+	// matches a requested DefaultFamily description.
+	defaultFont *opentype.Font
+	pool        sync.Pool
+}
 
-// GetFont returns font nearest by it`s weight
-func GetFont(fd FaceDescription) (*opentype.Font, error) {
-	loadedFacesMx.RLock()
-	defer loadedFacesMx.RUnlock()
+// NewRegistry parses the embedded default font plus every declared face.
+func NewRegistry(templates []FaceTemplate, fsys fs.FS) (*Registry, error) {
+	defaultFont, err := opentype.Parse(defaultFontFile)
+	if err != nil {
+		return nil, fmt.Errorf("can't parse embedded default font: %w", err)
+	}
 
-	minWeightDiff := 9999999.0
-	var currentFace *loadedFontFace
-	for _, f := range loadedFaces {
-		f := f
+	r := &Registry{
+		faces:       make([]loadedFontFace, 0, len(templates)),
+		defaultFont: defaultFont,
+	}
+	r.pool.New = func() any {
+		return &FaceSet{
+			reg:   r,
+			faces: make(map[FaceDescription]font.Face, 8),
+		}
+	}
+
+	for _, t := range templates {
+		if err := r.loadFont(t, nil, fsys); err != nil {
+			return nil, fmt.Errorf("failed loading font faces: %w", err)
+		}
+	}
+
+	return r, nil
+}
+
+func (r *Registry) loadFont(template FaceTemplate, content []byte, fsys fs.FS) error {
+	var loaded loadedFontFace
+
+	switch template.Style {
+	case "", "normal":
+		loaded.style = font.StyleNormal
+	case "italic":
+		loaded.style = font.StyleItalic
+	default:
+		return fmt.Errorf("wrong style %v for font %v", template.Style, template.Family)
+	}
+
+	if template.Family == "" {
+		return fmt.Errorf("font family not specified")
+	}
+	loaded.family = template.Family
+
+	if template.Weight != "" {
+		weight, err := strconv.Atoi(template.Weight)
+		if err != nil {
+			return fmt.Errorf("font weight not valid")
+		}
+		loaded.weight = weight
+	}
+
+	if slices.IndexFunc(r.faces, func(f loadedFontFace) bool {
+		return f.family == loaded.family && f.style == loaded.style && f.weight == loaded.weight
+	}) != -1 {
+		return fmt.Errorf("font face %v (style %v, weight %v) is declared more than once",
+			loaded.family, template.Style, loaded.weight)
+	}
+
+	if content == nil {
+		f, err := fsys.Open(template.File)
+		if err != nil {
+			return fmt.Errorf("can't open font file %v", template.File)
+		}
+		defer func() { _ = f.Close() }()
+
+		content, err = io.ReadAll(f)
+		if err != nil {
+			return fmt.Errorf("can't read font file %v", template.File)
+		}
+	}
+
+	fnt, err := opentype.Parse(content)
+	if err != nil {
+		return fmt.Errorf("can't parse font file %v", template.File)
+	}
+	loaded.font = fnt
+
+	r.faces = append(r.faces, loaded)
+
+	return nil
+}
+
+// GetFont returns the font nearest by weight within the requested family and style.
+func (r *Registry) GetFont(fd FaceDescription) (*opentype.Font, error) {
+	minWeightDiff := math.Inf(1)
+	var found *opentype.Font
+
+	for i := range r.faces {
+		f := &r.faces[i]
+		if fd.Family != f.family || fd.Style != f.style {
+			continue
+		}
 		weightDiff := math.Abs(float64(f.weight - fd.Weight))
-		if weightDiff < minWeightDiff && fd.Family == f.family && fd.Style == f.style {
-			currentFace = &f
+		if weightDiff < minWeightDiff {
+			found = f.font
 			minWeightDiff = weightDiff
 		}
 	}
 
-	if currentFace == nil {
+	if found == nil {
 		if fd.Family != DefaultFamily {
 			return nil, fmt.Errorf("font face (%v) not found", fd.Family)
 		}
-		currentFace = &loadedFaces[0] // first is the default face
+		found = r.defaultFont
 	}
 
-	return currentFace.font, nil
+	return found, nil
 }
 
-func GetFontFace(fd FaceDescription) (font.Face, error) {
-	f, err := GetFont(fd)
+// AcquireFaceSet returns a face set for the duration of one render. The returned
+// set belongs to the calling goroutine until it is released.
+func (r *Registry) AcquireFaceSet() *FaceSet {
+	return r.pool.Get().(*FaceSet)
+}
+
+func (r *Registry) ReleaseFaceSet(fs *FaceSet) {
+	if fs == nil {
+		return
+	}
+	if len(fs.faces) > maxCachedFaces {
+		clear(fs.faces)
+	}
+	r.pool.Put(fs)
+}
+
+// FaceSet caches realized font.Face values for a single render.
+//
+// It is NOT safe for concurrent use: font.Face reuses an internal glyph mask
+// buffer, so a face handed to two goroutines corrupts both. Acquire one set per
+// render via Registry.AcquireFaceSet.
+type FaceSet struct {
+	reg   *Registry
+	faces map[FaceDescription]font.Face
+}
+
+// Face returns the realized face for fd, creating it on first use.
+func (fs *FaceSet) Face(fd FaceDescription) (font.Face, error) {
+	if face, ok := fs.faces[fd]; ok {
+		return face, nil
+	}
+
+	f, err := fs.reg.GetFont(fd)
 	if err != nil {
 		return nil, err
 	}
 
-	face, _ := opentype.NewFace(f, &opentype.FaceOptions{
+	face, err := opentype.NewFace(f, &opentype.FaceOptions{
 		Size:    fd.Size,
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("can't create face for %v: %w", fd.Family, err)
+	}
+
+	fs.faces[fd] = face
 
 	return face, nil
 }
 
-func MeasureTextWidth(text string, fd FaceDescription) float64 {
-	face, err := GetFontFace(fd)
+func (fs *FaceSet) MeasureTextWidth(text string, fd FaceDescription) float64 {
+	face, err := fs.Face(fd)
 	if err != nil {
 		return 0.0
 	}
 
 	var width float64
-
-	for _, runeValue := range []rune(text) {
+	for _, runeValue := range text {
 		advance, _ := face.GlyphAdvance(runeValue)
 		width += float64(advance)
 	}
@@ -100,86 +242,4 @@ func GetFontFaceBaseLineOffset(face font.Face, lineHeight float64) float64 {
 	descent := float64(metrics.Descent.Ceil())
 	baselineOffset := (lineHeight - (ascent + descent)) / 2
 	return ascent + baselineOffset
-}
-
-func LoadFaces(faceTemplates []parsing.FontFace, fs fs.FS) error {
-	loadedFacesMx.Lock()
-	defer loadedFacesMx.Unlock()
-
-	if loadedFaces == nil {
-		loadedFaces = make([]loadedFontFace, 0, len(faceTemplates)+1)
-	}
-
-	if err := loadFont(parsing.FontFace{
-		Family: "default",
-		Style:  "normal",
-		Weight: "400",
-	}, defaultFontFile, fs); err != nil {
-		return err
-	}
-
-	for _, ft := range faceTemplates {
-		if err := loadFont(ft, nil, fs); err != nil {
-			return fmt.Errorf("failed loading font faces: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func loadFont(faceTemplate parsing.FontFace, content []byte, fs fs.FS) error {
-	cff := loadedFontFace{}
-	if faceTemplate.Style != "" {
-		switch faceTemplate.Style {
-		case "normal":
-			cff.style = font.StyleNormal
-		case "italic":
-			cff.style = font.StyleItalic
-		default:
-			return fmt.Errorf("wrong style %v for font %v", faceTemplate.Style, faceTemplate.Family)
-		}
-	} else {
-		cff.style = font.StyleNormal
-	}
-
-	if faceTemplate.Family == "" {
-		return fmt.Errorf("font family not specified")
-	}
-	cff.family = faceTemplate.Family
-
-	if faceTemplate.Weight != "" {
-		weight, err := strconv.Atoi(faceTemplate.Weight)
-		if err != nil {
-			return fmt.Errorf("font weight not valid")
-		}
-		cff.weight = weight
-	}
-
-	cff.uri = faceTemplate.File
-
-	if slices.IndexFunc(loadedFaces, func(f loadedFontFace) bool {
-		return f.family == cff.family && f.style == cff.style && f.weight == cff.weight
-	}) == -1 {
-		if content == nil {
-			f, err := fs.Open(faceTemplate.File)
-			if err != nil {
-				return fmt.Errorf("can't open font file %v", faceTemplate.File)
-			}
-			content, err = io.ReadAll(f)
-			if err != nil {
-				return fmt.Errorf("can't read font file %v", faceTemplate.File)
-			}
-		}
-
-		fnt, err := opentype.Parse(content)
-		if err != nil {
-			return fmt.Errorf("can't parse font file %v", faceTemplate.File)
-		}
-
-		cff.font = fnt
-
-		loadedFaces = append(loadedFaces, cff)
-	}
-
-	return nil
 }

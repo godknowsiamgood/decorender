@@ -2,8 +2,7 @@ package layout
 
 import (
 	"fmt"
-	"github.com/antonmedv/expr"
-	"github.com/godknowsiamgood/decorender/internal/utils"
+	"github.com/expr-lang/expr"
 	"reflect"
 	"strconv"
 	"strings"
@@ -21,19 +20,9 @@ func replaceWithValues(str string, value any, parentValue any, valueIndex int, c
 
 	str = strings.TrimLeft(str, "~")
 
-	cache.programsMx.Lock()
-	defer cache.programsMx.Unlock()
-
-	var err error
-
-	key := utils.HashDJB2(str)
-	program, _ := cache.programs[key]
-	if program == nil {
-		program, err = expr.Compile(str)
-		if err != nil {
-			return str, err
-		}
-		cache.programs[key] = program
+	program, err := cache.program(str)
+	if err != nil {
+		return str, err
 	}
 
 	var result any

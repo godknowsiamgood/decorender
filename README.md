@@ -92,7 +92,7 @@ In almost any field, you can use an expression instead of a fixed one. `github.c
 ## Performance
 
 Almost everything is written with performance considerations in mind.
- * No rendering libraries are used, everything is drawn with standard libraries. The only exception is github.com/disintegration/imaging for rotations.
+ * No rendering libraries are used, everything is drawn with the standard library and golang.org/x/image.
  * Work with all heavy objects (internal node tree, buffers for images, rasterizers) is done through sync.Pool.
  * A small LRU cache is used for frequently used images. Also, an LRU cache is used for frequently used masks (which, for example, are used for drawing rounded rectangles).
  * Downloaded external images are stored in the system's tmp directory and are not downloaded again upon reuse.

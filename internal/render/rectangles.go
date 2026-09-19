@@ -16,6 +16,23 @@ var rasterizerPool = sync.Pool{
 	},
 }
 
+// image.Uniform is only read for the duration of a draw call, so the sources
+// can be pooled instead of allocating one per fill.
+var uniformPool = sync.Pool{
+	New: func() any {
+		return &image.Uniform{}
+	},
+}
+
+func getUniform(c color.Color) *image.Uniform {
+	u := uniformPool.Get().(*image.Uniform)
+	u.C = c
+	return u
+}
+
+// opaqueAlpha is read-only and shared: the rasterizer only samples from it.
+var opaqueAlpha = image.NewUniform(color.Alpha{A: 255})
+
 func alphaPremultiply(c color.RGBA) color.RGBA {
 	alpha := float64(c.A) / 255
 	return color.RGBA{
@@ -79,16 +96,23 @@ func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii 
 
 	bounds := outerImage.Bounds()
 
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			alphaFirst := outerImage.AlphaAt(x, y).A
-			alphaSecond := innerImage.AlphaAt(x, y).A
-			newAlpha := uint8(math.Max(0, float64(alphaFirst)-float64(alphaSecond)))
-			outerImage.SetAlpha(x, y, color.Alpha{A: newAlpha})
+	// Both masks share bounds and stride, so the ring is just a saturating
+	// subtraction over the raw alpha bytes.
+	outerPix, innerPix := outerImage.Pix, innerImage.Pix
+	if len(innerPix) < len(outerPix) {
+		outerPix = outerPix[:len(innerPix)]
+	}
+	for i, inner := range innerPix[:len(outerPix)] {
+		if outerPix[i] > inner {
+			outerPix[i] -= inner
+		} else {
+			outerPix[i] = 0
 		}
 	}
 
-	draw.DrawMask(dst, image.Rect(int(x), int(y), int(x)+bounds.Dx(), int(y)+bounds.Dy()), &image.Uniform{C: alphaPremultiply(border.Color)}, image.Point{}, outerImage, image.Point{}, draw.Over)
+	borderUniform := getUniform(alphaPremultiply(border.Color))
+	draw.DrawMask(dst, image.Rect(int(x), int(y), int(x)+bounds.Dx(), int(y)+bounds.Dy()), borderUniform, image.Point{}, outerImage, image.Point{}, draw.Over)
+	uniformPool.Put(borderUniform)
 
 	utils.ReleaseImage(outerImage)
 	utils.ReleaseImage(innerImage)
@@ -143,21 +167,24 @@ func useRoundedRectMaskImage(cache *Cache, w float64, h float64, radii utils.Fou
 
 		r.ClosePath()
 
-		r.Draw(mask, mask.Bounds(), image.NewUniform(color.Alpha{A: 255}), image.Point{})
+		r.Draw(mask, mask.Bounds(), opaqueAlpha, image.Point{})
 
 		rasterizerPool.Put(r)
 	}, onUse)
 }
 
 func drawRoundedRect(cache *Cache, dst draw.Image, c color.Color, x, y, w, h float64, radii utils.FourValues) {
+	u := getUniform(c)
+	defer uniformPool.Put(u)
+
 	if !radii.HasValues() { // Short path for drawing simple rectangle
-		draw.Draw(dst, image.Rect(int(x), int(y), int(x+w), int(y+h)), image.NewUniform(c), image.Point{}, draw.Over)
+		draw.Draw(dst, image.Rect(int(x), int(y), int(x+w), int(y+h)), u, image.Point{}, draw.Over)
 		return
 	}
 
 	useRoundedRectMaskImage(cache, w, h, radii, func(mask *image.Alpha) {
 		bounds := image.Rect(int(x), int(y), int(x+w), int(y+h))
-		draw.DrawMask(dst, bounds, &image.Uniform{C: c}, image.Point{}, mask, image.Point{}, draw.Over)
+		draw.DrawMask(dst, bounds, u, image.Point{}, mask, image.Point{}, draw.Over)
 	})
 }
 

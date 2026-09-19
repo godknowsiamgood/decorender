@@ -6,7 +6,6 @@ import (
 	"github.com/godknowsiamgood/decorender/internal/fonts"
 	"github.com/godknowsiamgood/decorender/internal/parsing"
 	"github.com/godknowsiamgood/decorender/internal/utils"
-	"github.com/samber/lo"
 	"golang.org/x/image/font"
 	"image/color"
 	"math"
@@ -83,7 +82,10 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		}
 	}
 	if n.FontStyle != "" {
-		fontDescription.Style = lo.Ternary(replaceWithValuesUnsafe(n.FontStyle, data, parentData, currentValueIndex, context.cache) == "italic", font.StyleItalic, font.StyleNormal)
+		fontDescription.Style = font.StyleNormal
+		if replaceWithValuesUnsafe(n.FontStyle, data, parentData, currentValueIndex, context.cache) == "italic" {
+			fontDescription.Style = font.StyleItalic
+		}
 	}
 
 	childrenDirection := validateStringValue(replaceWithValuesUnsafe(n.InnerDirection, data, parentData, currentValueIndex, context.cache), []string{"column", "row"})
@@ -103,6 +105,16 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		childrenDirection = "row"
 	}
 
+	resolvedLineHeight := lineHeight[0]
+	if n.LineHeight == "" {
+		resolvedLineHeight = context.props.LineHeight
+	}
+
+	resolvedBkgImageSize := BkgImageSizeCover
+	if bkgImageSize == "contain" {
+		resolvedBkgImageSize = BkgImageSizeContain
+	}
+
 	return CalculatedProperties{
 		Size:                   utils.Size{W: sz[0], H: sz[1]},
 		BkgColor:               backgroundColor,
@@ -112,32 +124,82 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		Justify:                childrenJustify,
 		ChildrenColumnAlign:    childrenColumnAlign,
 		IsWrappingEnabled:      childrenWrap == "wrap",
-		LineHeight:             lo.Ternary(n.LineHeight == "", context.props.LineHeight, lineHeight[0]),
+		LineHeight:             resolvedLineHeight,
 		Padding:                utils.TopRightBottomLeft{padding[0], padding[1], padding[2], padding[3]},
 		FontDescription:        fontDescription,
 		BorderRadius:           borderRadius,
 		AbsolutePosition:       anchors,
 		InnerGap:               innerGap[0],
 		Rotation:               rotation[0],
-		BkgImageSize:           lo.Ternary(bkgImageSize == "contain", BkgImageSizeContain, BkgImageSizeCover),
+		BkgImageSize:           resolvedBkgImageSize,
 		Border:                 border,
 		Offset:                 utils.TopRightBottomLeft{offsetAnchors.Top(), offsetAnchors.Right(), offsetAnchors.Bottom(), offsetAnchors.Left()},
 	}
 }
 
+// nextField returns the next whitespace-separated field of s along with the
+// remainder. It is strings.Fields without the result slice, which showed up as
+// a large share of allocations because every node re-parses its properties on
+// every render.
+func nextField(s string) (field string, rest string) {
+	i := 0
+	for i < len(s) && isSpaceByte(s[i]) {
+		i++
+	}
+	s = s[i:]
+	if s == "" {
+		return "", ""
+	}
+
+	j := 0
+	for j < len(s) && !isSpaceByte(s[j]) {
+		j++
+	}
+	return s[:j], s[j:]
+}
+
+func isSpaceByte(c byte) bool {
+	switch c {
+	case ' ', '\t', '\n', '\v', '\f', '\r':
+		return true
+	}
+	return false
+}
+
+// looksNumeric reports whether s could start a number, so that obviously
+// non-numeric tokens skip strconv.ParseFloat - its error value allocates.
+func looksNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	c := s[0]
+	return c == '-' || c == '+' || c == '.' || (c >= '0' && c <= '9')
+}
+
 func parseAnchors(value string, data any, parentValue any, currentValueIndex int, cache *Cache) (result utils.AbsolutePosition) {
 	value = replaceWithValuesUnsafe(value, data, parentValue, currentValueIndex, cache)
-	tokens := strings.Fields(value)
-	for _, token := range tokens {
-		tokenParts := strings.Split(token, "/")
 
-		var direction string
-		var offset float64
-		if len(tokenParts) > 0 {
-			direction = tokenParts[0]
+	for {
+		var token string
+		token, value = nextField(value)
+		if token == "" {
+			break
 		}
-		if len(tokenParts) > 1 {
-			offset, _ = strconv.ParseFloat(tokenParts[1], 64)
+
+		direction := token
+		var offset float64
+
+		// A token may carry an offset, e.g. "left/-10". Only the first segment
+		// after the direction is used.
+		if k := strings.IndexByte(token, '/'); k >= 0 {
+			direction = token[:k]
+			offsetPart := token[k+1:]
+			if e := strings.IndexByte(offsetPart, '/'); e >= 0 {
+				offsetPart = offsetPart[:e]
+			}
+			if looksNumeric(offsetPart) {
+				offset, _ = strconv.ParseFloat(offsetPart, 64)
+			}
 		}
 
 		switch direction {
@@ -155,19 +217,39 @@ func parseAnchors(value string, data any, parentValue any, currentValueIndex int
 }
 
 func parseBorderProperty(value string) (res utils.Border, err error) {
-	tokens := strings.Fields(value)
-
 	var widthIsSet bool
 	var colorIsSet bool
 
-	for _, t := range tokens {
-		width, err := strconv.ParseFloat(t, 64)
-		if err == nil {
-			if widthIsSet {
-				return res, fmt.Errorf("trying to specify border width %v, but width is already set", width)
+	for {
+		var t string
+		t, value = nextField(value)
+		if t == "" {
+			break
+		}
+
+		if looksNumeric(t) {
+			width, err := strconv.ParseFloat(t, 64)
+			if err == nil {
+				if widthIsSet {
+					return res, fmt.Errorf("trying to specify border width %v, but width is already set", width)
+				}
+				widthIsSet = true
+				res.Width = width
+				continue
 			}
-			widthIsSet = true
-			res.Width = width
+		}
+
+		// Keywords are checked first: parseColor reports failure with
+		// fmt.Errorf, so asking it about "inset" allocates an error per node.
+		switch t {
+		case "inset":
+			res.Type = utils.BorderTypeInset
+			continue
+		case "outset":
+			res.Type = utils.BorderTypeOutset
+			continue
+		case "center":
+			res.Type = utils.BorderTypeCenter
 			continue
 		}
 
@@ -181,16 +263,7 @@ func parseBorderProperty(value string) (res utils.Border, err error) {
 			continue
 		}
 
-		switch t {
-		case "inset":
-			res.Type = utils.BorderTypeInset
-		case "outset":
-			res.Type = utils.BorderTypeOutset
-		case "center":
-			res.Type = utils.BorderTypeCenter
-		default:
-			return res, fmt.Errorf("unknown token %v in border property", t)
-		}
+		return res, fmt.Errorf("unknown token %v in border property", t)
 	}
 
 	return res, nil
@@ -216,7 +289,91 @@ func prepareParsedValue(value float64, isVertical bool, unit int, parentWidth fl
 	return 0
 }
 
-var parseValueRegex = regexp.MustCompile(`(?i)(-?\d+(\.\d+)?)(%|w|h|)`)
+// scannedValue is one numeric token found in a property string.
+type scannedValue struct {
+	value float64
+	unit  int
+}
+
+// scanValues extracts the numeric tokens of a property string, e.g.
+// "10 20%" or "-5.5w". It replaces the equivalent regular expression
+//
+//	(?i)(-?\d+(\.\d+)?)(%|w|h|)
+//
+// which dominated allocations: every property of every node was re-scanned on
+// every render, and FindAllStringSubmatch allocates a slice per match.
+//
+// Scanning stops early once more than max tokens are found, since callers
+// treat that as a parse failure. The returned count may therefore exceed max
+// by one; it is never more.
+func scanValues(str string, max int, out *[4]scannedValue) int {
+	count := 0
+
+	for i := 0; i < len(str); {
+		c := str[i]
+
+		// A token is -?\d+(\.\d+)? - a leading minus only counts when a digit
+		// follows it, matching the regex's backtracking behaviour.
+		start := i
+		if c == '-' {
+			if i+1 >= len(str) || !isASCIIDigit(str[i+1]) {
+				i++
+				continue
+			}
+			i++
+		} else if !isASCIIDigit(c) {
+			i++
+			continue
+		}
+
+		for i < len(str) && isASCIIDigit(str[i]) {
+			i++
+		}
+		if i+1 < len(str) && str[i] == '.' && isASCIIDigit(str[i+1]) {
+			i++
+			for i < len(str) && isASCIIDigit(str[i]) {
+				i++
+			}
+		}
+		numEnd := i
+
+		unit := unitAbs
+		if i < len(str) {
+			switch str[i] {
+			case '%':
+				unit = unitPercent
+				i++
+			case 'w', 'W':
+				unit = unitWidth
+				i++
+			case 'h', 'H':
+				unit = unitHeight
+				i++
+			}
+		}
+
+		if count > max {
+			return count
+		}
+
+		// ParseFloat on a slice of the original string does not allocate.
+		val, err := strconv.ParseFloat(str[start:numEnd], 64)
+		if err != nil {
+			return count
+		}
+
+		if count < len(out) {
+			out[count] = scannedValue{value: val, unit: unit}
+		}
+		count++
+	}
+
+	return count
+}
+
+func isASCIIDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
 
 var valuesEmptyErr = errors.New("values empty")
 var valuesParseErr = errors.New("values format not correct")
@@ -230,29 +387,17 @@ func parseNValues(str string, max int, parentWidth float64, parentHeight float64
 
 	str = replaceWithValuesUnsafe(str, data, parentData, currentValueIndex, cache)
 
-	matches := parseValueRegex.FindAllStringSubmatch(str, -1)
-	if len(matches) > max || len(matches) == 0 {
+	var scanned [4]scannedValue
+	count := scanValues(str, max, &scanned)
+	if count > max || count == 0 {
 		return result, valuesParseErr
 	}
 
-	for i, match := range matches {
-		val, err := strconv.ParseFloat(match[1], 64)
-		if err != nil {
-			return result, err
-		}
+	for i := 0; i < count; i++ {
+		val := scanned[i].value
 
 		if !allowNegative && val < 0 {
 			val = -val
-		}
-
-		unit := unitAbs
-		switch strings.ToLower(match[3]) {
-		case "%":
-			unit = unitPercent
-		case "w":
-			unit = unitWidth
-		case "h":
-			unit = unitHeight
 		}
 
 		isVertical := i%2 == 1
@@ -260,21 +405,21 @@ func parseNValues(str string, max int, parentWidth float64, parentHeight float64
 			isVertical = !relativeToWidth
 		}
 
-		result[i] = prepareParsedValue(val, isVertical, unit, parentWidth, parentHeight)
+		result[i] = prepareParsedValue(val, isVertical, scanned[i].unit, parentWidth, parentHeight)
 	}
 
-	if len(matches) == 1 {
+	if count == 1 {
 		result[1] = result[0]
 		result[2] = result[0]
 		result[3] = result[0]
 	}
 
-	if len(matches) == 2 {
+	if count == 2 {
 		result[2] = result[0]
 		result[3] = result[1]
 	}
 
-	if len(matches) == 3 {
+	if count == 3 {
 		result[3] = result[1]
 	}
 
@@ -346,8 +491,13 @@ func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64,
 
 	isSizeSet := false
 
-	tokens := strings.Fields(prop)
-	for _, token := range tokens {
+	for {
+		var token string
+		token, prop = nextField(prop)
+		if token == "" {
+			break
+		}
+
 		v, err := parseNValues(token, 1, parentWidth, parentHeight, data, parentData, currentValueIndex, true, false, cache)
 		if err != nil {
 			if token == "italic" {
