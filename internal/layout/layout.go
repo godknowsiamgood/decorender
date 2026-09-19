@@ -213,7 +213,26 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 						maxHeight = math.Max(maxHeight, cn.Size.H)
 					})
 
-					top += maxHeight + gap
+					// Children of a row are laid out along the top edge; this
+					// moves them within the row once its height is known.
+					if props.ChildrenRowAlign != "top" {
+						nodes.IterateRow(childrenNodesLevel, from, rowIndex, func(cn *Node) {
+							if cn.IsAbsolutePositioned() {
+								return
+							}
+							free := maxHeight - cn.Size.H
+							if props.ChildrenRowAlign == "center" {
+								free /= 2
+							}
+							cn.Pos.Top = top + free
+						})
+					}
+
+					// Rows stack by the gap the layout asked for. The gap
+					// getJustifyOffsetAndGap returns is the horizontal one it
+					// spread the row with, which under space-between grows
+					// with the free space left on the line.
+					top += maxHeight + props.InnerGap
 				})
 			} else {
 				totalHeight, count := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
@@ -298,7 +317,12 @@ func getJustifyOffsetAndGap(justifyProp string, gapProp float64, totalSize float
 	case "end":
 		offset = parentSize - totalSize
 	case "space-between":
-		gap = (parentSize - totalSize) / float64(count-1)
+		// A lone child has no space between anything, and dividing by the
+		// gaps it does not have gives an infinity that spreads through every
+		// position derived from it.
+		if count > 1 {
+			gap = (parentSize - totalSize) / float64(count-1)
+		}
 	case "space-evenly":
 		gap = (parentSize - totalSize) / float64(count+1)
 		offset = gap

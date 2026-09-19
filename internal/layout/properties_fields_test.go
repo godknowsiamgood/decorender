@@ -99,8 +99,6 @@ func referenceParseAnchors(value string) (result utils.AbsolutePosition) {
 }
 
 func TestParseAnchorsMatchesReference(t *testing.T) {
-	cache := NewCache()
-
 	cases := []string{
 		"", "left", "right", "top", "bottom",
 		"left right", "top bottom", "left top",
@@ -110,7 +108,7 @@ func TestParseAnchorsMatchesReference(t *testing.T) {
 		"LEFT", "  left   top  ", "middle", "left/1e3",
 	}
 	for _, c := range cases {
-		got := parseAnchors(c, nil, nil, 0, cache)
+		got, _ := parseAnchors(c)
 		want := referenceParseAnchors(c)
 		if got != want {
 			t.Errorf("parseAnchors(%q) = %+v, reference = %+v", c, got, want)
@@ -121,7 +119,6 @@ func TestParseAnchorsMatchesReference(t *testing.T) {
 func TestParseAnchorsFuzzMatchesReference(t *testing.T) {
 	const alphabet = "leftrighopbm/ -.0123456789"
 
-	cache := NewCache()
 	rnd := rand.New(rand.NewSource(11))
 	for i := 0; i < 20000; i++ {
 		n := rnd.Intn(20)
@@ -131,7 +128,8 @@ func TestParseAnchorsFuzzMatchesReference(t *testing.T) {
 		}
 		in := sb.String()
 
-		if got, want := parseAnchors(in, nil, nil, 0, cache), referenceParseAnchors(in); got != want {
+		got, _ := parseAnchors(in)
+		if want := referenceParseAnchors(in); got != want {
 			t.Fatalf("parseAnchors(%q) = %+v, reference = %+v", in, got, want)
 		}
 	}

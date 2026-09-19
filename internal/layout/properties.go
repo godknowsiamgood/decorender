@@ -21,6 +21,42 @@ const (
 	unitHeight
 )
 
+// resolver evaluates the template form of property values and remembers the
+// first failure, so that calculateProperties can report it instead of
+// rendering something the layout never asked for.
+//
+// An expression that does not compile, or that fails against the data, is a
+// mistake in the layout rather than a value with a sensible default. Until
+// now every property but color swallowed it: a misquoted expression in
+// `absolute`, for example, left the node with no anchors at all, so it
+// silently dropped back into the flow. Colors already reported this; the rest
+// of the properties now do too.
+type resolver struct {
+	data       any
+	parentData any
+	valueIndex int
+	cache      *Cache
+	err        error
+}
+
+func (r *resolver) str(prop string, source string) string {
+	v, err := replaceWithValues(source, r.data, r.parentData, r.valueIndex, r.cache)
+	if err != nil {
+		if r.err == nil {
+			r.err = fmt.Errorf("%s %q: %w", prop, source, err)
+		}
+		return ""
+	}
+	return v
+}
+
+// values resolves and parses a numeric property, e.g. "10 20%" or "0.5w".
+// The parse error is the caller's to ignore - properties fall back to their
+// default when they do not parse - while an expression failure is kept.
+func (r *resolver) values(prop string, source string, max int, parentWidth float64, parentHeight float64, relativeToWidth bool, allowNegative bool) (utils.FourValues, error) {
+	return parseNValues(r.str(prop, source), max, parentWidth, parentHeight, relativeToWidth, allowNegative)
+}
+
 // calculateProperties is currently ugly function that needs refactoring.
 // Maybe we should introduce some fields generic configuration.
 //
@@ -29,13 +65,15 @@ const (
 // renderer has always had; a color has no usable fallback, because the zero
 // RGBA is fully transparent and simply makes the element vanish.
 func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, parentData any, currentValueIndex int) (CalculatedProperties, error) {
-	padding, _ := parseNValues(n.Padding, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
-	lineHeight, _ := parseNValues(n.LineHeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
-	borderRadius, _ := parseNValues(n.BorderRadius, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
+	res := resolver{data: data, parentData: parentData, valueIndex: currentValueIndex, cache: context.cache}
 
-	sz, szErr := parseNValues(n.Size, 2, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
-	width, widthErr := parseNValues(n.Width, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
-	height, heightErr := parseNValues(n.Height, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
+	padding, _ := res.values("padding", n.Padding, 4, context.size.W, context.size.H, false, false)
+	lineHeight, _ := res.values("lineHeight", n.LineHeight, 1, context.size.W, context.size.H, false, false)
+	borderRadius, _ := res.values("borderRadius", n.BorderRadius, 4, context.size.W, context.size.H, false, false)
+
+	sz, szErr := res.values("size", n.Size, 2, context.size.W, context.size.H, false, false)
+	width, widthErr := res.values("width", n.Width, 1, context.size.W, context.size.H, true, false)
+	height, heightErr := res.values("height", n.Height, 1, context.size.W, context.size.H, false, false)
 	if szErr != nil {
 		sz[0], sz[1] = -1, -1
 	}
@@ -46,7 +84,10 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		sz[1] = height[0]
 	}
 
-	anchors := parseAnchors(n.Absolute, data, parentData, currentValueIndex, context.cache)
+	anchors, anchorsErr := parseAnchors(res.str("absolute", n.Absolute))
+	if anchorsErr != nil {
+		return CalculatedProperties{}, fmt.Errorf("absolute: %w", anchorsErr)
+	}
 	if anchors.HasTop() && anchors.HasBottom() {
 		sz[1] = context.size.H - anchors.Top() - anchors.Bottom()
 	}
@@ -56,14 +97,14 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 
 	backgroundColor := color.RGBA{A: 0}
 	if n.BkgColor != "" {
-		c, err := resolveColor("bkgColor", n.BkgColor, data, parentData, currentValueIndex, context.cache)
+		c, err := resolveColor("bkgColor", n.BkgColor, &res)
 		if err != nil {
 			return CalculatedProperties{}, err
 		}
 		backgroundColor = c
 	}
 
-	bkgImageSize := validateStringValue(n.BkgImageSize, []string{"cover", "contain"})
+	bkgImageSize := validateStringValue(res.str("bkgImageSize", n.BkgImageSize), []string{"cover", "contain"})
 
 	fontColor := context.props.FontColor // inherited
 	// Order matters: `color` is the alias and wins when both are given.
@@ -71,7 +112,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		if f.source == "" {
 			continue
 		}
-		c, err := resolveColor(f.prop, f.source, data, parentData, currentValueIndex, context.cache)
+		c, err := resolveColor(f.prop, f.source, &res)
 		if err != nil {
 			return CalculatedProperties{}, err
 		}
@@ -79,44 +120,48 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 	}
 
 	fontDescription := context.props.FontDescription // inherited
-	fontDescription = parseFontString(n.Font, fontDescription, context.size.W, context.size.H, data, parentData, currentValueIndex, context.cache)
+	fontDescription = parseFontString(res.str("font", n.Font), fontDescription, context.size.W, context.size.H)
 	if n.FontFamily != "" {
-		fontDescription.Family = replaceWithValuesUnsafe(n.FontFamily, data, parentData, currentValueIndex, context.cache)
+		fontDescription.Family = res.str("fontFamily", n.FontFamily)
 	}
 	if n.FontSize != "" {
-		v, err := parseNValues(n.FontSize, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
+		v, err := res.values("fontSize", n.FontSize, 1, context.size.W, context.size.H, true, false)
 		if err == nil {
 			fontDescription.Size = v[0]
 		}
 	}
 	if n.FontWeight != "" {
-		v, err := parseNValues(n.FontWeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
+		v, err := res.values("fontWeight", n.FontWeight, 1, context.size.W, context.size.H, true, false)
 		if err == nil {
 			fontDescription.Weight = int(v[0])
 		}
 	}
 	if n.FontStyle != "" {
 		fontDescription.Style = font.StyleNormal
-		if replaceWithValuesUnsafe(n.FontStyle, data, parentData, currentValueIndex, context.cache) == "italic" {
+		if res.str("fontStyle", n.FontStyle) == "italic" {
 			fontDescription.Style = font.StyleItalic
 		}
 	}
 
-	childrenDirection := validateStringValue(replaceWithValuesUnsafe(n.InnerDirection, data, parentData, currentValueIndex, context.cache), []string{"column", "row"})
-	childrenJustify := validateStringValue(replaceWithValuesUnsafe(n.Justify, data, parentData, currentValueIndex, context.cache), []string{"start", "center", "end", "space-between", "space-evenly"})
-	childrenColumnAlign := validateStringValue(replaceWithValuesUnsafe(n.ChildrenColumnAlign, data, parentData, currentValueIndex, context.cache), []string{"left", "center", "right"})
-	childrenWrap := validateStringValue(replaceWithValuesUnsafe(n.ChildrenWrap, data, parentData, currentValueIndex, context.cache), []string{"wrap", "none"})
+	childrenDirection := validateStringValue(res.str("innerDirection", n.InnerDirection), []string{"column", "row"})
+	childrenJustify := validateStringValue(res.str("justify", n.Justify), []string{"start", "center", "end", "space-between", "space-evenly"})
+	childrenColumnAlign := validateStringValue(res.str("innerColumnAlign", n.ChildrenColumnAlign), []string{"left", "center", "right"})
+	childrenRowAlign := validateStringValue(res.str("innerRowAlign", n.ChildrenRowAlign), []string{"top", "center", "bottom"})
+	childrenWrap := validateStringValue(res.str("innerWrap", n.ChildrenWrap), []string{"wrap", "none"})
 
-	innerGap, _ := parseNValues(n.InnerGap, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, false, context.cache)
+	innerGap, _ := res.values("innerGap", n.InnerGap, 1, context.size.W, context.size.H, true, false)
 
-	rotation, _ := parseNValues(n.Rotation, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, true, context.cache)
+	rotation, _ := res.values("rotate", n.Rotation, 1, context.size.W, context.size.H, true, true)
 
-	border, err := parseBorderProperty(replaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex, context.cache))
+	border, err := parseBorderProperty(res.str("border", n.Border))
 	if err != nil {
 		return CalculatedProperties{}, fmt.Errorf("border: %w", err)
 	}
 
-	offsetAnchors := parseAnchors(n.Offset, data, parentData, currentValueIndex, context.cache)
+	offsetAnchors, offsetErr := parseAnchors(res.str("offset", n.Offset))
+	if offsetErr != nil {
+		return CalculatedProperties{}, fmt.Errorf("offset: %w", offsetErr)
+	}
 
 	if n.Text != "" {
 		childrenDirection = "row"
@@ -132,6 +177,10 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		resolvedBkgImageSize = BkgImageSizeContain
 	}
 
+	if res.err != nil {
+		return CalculatedProperties{}, res.err
+	}
+
 	return CalculatedProperties{
 		Size:                   utils.Size{W: sz[0], H: sz[1]},
 		BkgColor:               backgroundColor,
@@ -140,6 +189,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		IsChildrenDirectionRow: childrenDirection == "row",
 		Justify:                childrenJustify,
 		ChildrenColumnAlign:    childrenColumnAlign,
+		ChildrenRowAlign:       childrenRowAlign,
 		IsWrappingEnabled:      childrenWrap == "wrap",
 		LineHeight:             resolvedLineHeight,
 		Padding:                utils.TopRightBottomLeft{padding[0], padding[1], padding[2], padding[3]},
@@ -160,8 +210,11 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 // leaving the zero RGBA: fully transparent. A misspelt color name, or an
 // expression that did not resolve, therefore produced an invisible element and
 // no diagnostic whatsoever.
-func resolveColor(prop string, source string, data any, parentData any, currentValueIndex int, cache *Cache) (color.RGBA, error) {
-	resolved := replaceWithValuesUnsafe(source, data, parentData, currentValueIndex, cache)
+func resolveColor(prop string, source string, res *resolver) (color.RGBA, error) {
+	resolved := res.str(prop, source)
+	if res.err != nil {
+		return color.RGBA{}, res.err
+	}
 
 	c, err := parseColor(resolved)
 	if err == nil {
@@ -214,9 +267,14 @@ func looksNumeric(s string) bool {
 	return c == '-' || c == '+' || c == '.' || (c >= '0' && c <= '9')
 }
 
-func parseAnchors(value string, data any, parentValue any, currentValueIndex int, cache *Cache) (result utils.AbsolutePosition) {
-	value = replaceWithValuesUnsafe(value, data, parentValue, currentValueIndex, cache)
-
+// parseAnchors reads the directions of `absolute` or `offset`.
+//
+// A token that names no direction is reported rather than skipped: it is
+// always a mistake, and skipping it left the node with no anchors at all, so
+// it quietly went back into the flow instead of being positioned. An
+// expression that evaluates to a string literal - the usual result of
+// misplaced quotes - lands here.
+func parseAnchors(value string) (result utils.AbsolutePosition, err error) {
 	for {
 		var token string
 		token, value = nextField(value)
@@ -249,20 +307,63 @@ func parseAnchors(value string, data any, parentValue any, currentValueIndex int
 			result[2] = utils.AbsolutePos{Has: true, Offset: offset}
 		case "left":
 			result[3] = utils.AbsolutePos{Has: true, Offset: offset}
+		default:
+			if err == nil {
+				err = fmt.Errorf("unknown direction %q, expected top, right, bottom or left", direction)
+			}
 		}
 	}
-	return result
+	return result, err
 }
 
 func parseBorderProperty(value string) (res utils.Border, err error) {
 	var widthIsSet bool
 	var colorIsSet bool
+	var isDashed bool
 
 	for {
 		var t string
 		t, value = nextField(value)
 		if t == "" {
 			break
+		}
+
+		// A dash pattern may carry its lengths, e.g. "dashed/6/3", the same
+		// way an anchor carries its offset.
+		if t == "dashed" || strings.HasPrefix(t, "dashed/") {
+			if isDashed {
+				return res, fmt.Errorf("trying to specify dash pattern %v, but it is already set", t)
+			}
+			isDashed = true
+
+			lengths := strings.Split(t, "/")[1:]
+			if len(lengths) > utils.MaxBorderDashes {
+				return res, fmt.Errorf("dash pattern %v has more than %v lengths", t, utils.MaxBorderDashes)
+			}
+			for i, l := range lengths {
+				v, convErr := strconv.ParseFloat(l, 64)
+				if convErr != nil || v < 0 {
+					return res, fmt.Errorf("dash length %q in %v is not a positive number", l, t)
+				}
+				res.Dashes[i] = v
+			}
+			res.DashCount = len(lengths)
+			continue
+		}
+
+		switch t {
+		case "top":
+			res.Sides |= utils.BorderSideTop
+			continue
+		case "right":
+			res.Sides |= utils.BorderSideRight
+			continue
+		case "bottom":
+			res.Sides |= utils.BorderSideBottom
+			continue
+		case "left":
+			res.Sides |= utils.BorderSideLeft
+			continue
 		}
 
 		if looksNumeric(t) {
@@ -302,6 +403,18 @@ func parseBorderProperty(value string) (res utils.Border, err error) {
 		}
 
 		return res, fmt.Errorf("unknown token %v in border property", t)
+	}
+
+	// A pattern given without lengths follows the border width, which is only
+	// known once every token has been read - they may come in any order.
+	if isDashed && res.DashCount == 0 {
+		res.Dashes[0] = res.Width * 4
+		res.Dashes[1] = res.Width * 4
+		res.DashCount = 2
+	}
+
+	if isDashed && !res.IsDashed() {
+		return res, fmt.Errorf("dash pattern of zero length draws nothing")
 	}
 
 	return res, nil
@@ -416,14 +529,12 @@ func isASCIIDigit(c byte) bool {
 var valuesEmptyErr = errors.New("values empty")
 var valuesParseErr = errors.New("values format not correct")
 
-func parseNValues(str string, max int, parentWidth float64, parentHeight float64, data any, parentData any, currentValueIndex int, relativeToWidth bool, allowNegative bool, cache *Cache) (utils.FourValues, error) {
+func parseNValues(str string, max int, parentWidth float64, parentHeight float64, relativeToWidth bool, allowNegative bool) (utils.FourValues, error) {
 	var result utils.FourValues
 
 	if str == "" {
 		return result, valuesEmptyErr
 	}
-
-	str = replaceWithValuesUnsafe(str, data, parentData, currentValueIndex, cache)
 
 	var scanned [4]scannedValue
 	count := scanValues(str, max, &scanned)
@@ -519,12 +630,11 @@ func validateStringValue(v string, options []string) string {
 	return options[0]
 }
 
-func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64, parentHeight float64, data any, parentData any, currentValueIndex int, cache *Cache) fonts.FaceDescription {
+func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64, parentHeight float64) fonts.FaceDescription {
 	if prop == "" {
 		return fd
 	}
 
-	prop = replaceWithValuesUnsafe(prop, data, parentData, currentValueIndex, cache)
 	prop = strings.ReplaceAll(prop, ",", " ")
 
 	isSizeSet := false
@@ -536,7 +646,7 @@ func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64,
 			break
 		}
 
-		v, err := parseNValues(token, 1, parentWidth, parentHeight, data, parentData, currentValueIndex, true, false, cache)
+		v, err := parseNValues(token, 1, parentWidth, parentHeight, true, false)
 		if err != nil {
 			if token == "italic" {
 				fd.Style = font.StyleItalic

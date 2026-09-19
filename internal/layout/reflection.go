@@ -8,11 +8,6 @@ import (
 	"strings"
 )
 
-func replaceWithValuesUnsafe(str string, value any, parentValue any, valueIndex int, cache *Cache) string {
-	v, _ := replaceWithValues(str, value, parentValue, valueIndex, cache)
-	return v
-}
-
 func replaceWithValues(str string, value any, parentValue any, valueIndex int, cache *Cache) (string, error) {
 	if !strings.HasPrefix(str, "~") {
 		return str, nil

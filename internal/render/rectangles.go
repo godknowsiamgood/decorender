@@ -110,12 +110,95 @@ func drawRoundedBorder(cache *Cache, dst *image.RGBA, x, y, w, h float64, radii 
 		}
 	}
 
+	if border.NeedsMask() {
+		maskBorderOutline(outerImage, border)
+	}
+
 	borderUniform := getUniform(alphaPremultiply(border.Color))
 	draw.DrawMask(dst, image.Rect(int(x), int(y), int(x)+bounds.Dx(), int(y)+bounds.Dy()), borderUniform, image.Point{}, outerImage, image.Point{}, draw.Over)
 	uniformPool.Put(borderUniform)
 
 	utils.ReleaseImage(outerImage)
 	utils.ReleaseImage(innerImage)
+}
+
+// maskBorderOutline removes the parts of a border ring the layout did not ask
+// for: the sides it does not name and the gaps of a dash pattern.
+//
+// A pixel belongs to the side whose edge it lies nearest, which puts the seam
+// between two sides on the 45 degree miter a browser draws, and keeps working
+// when the node is flatter than its own border - a node one pixel high with a
+// top border is a horizontal rule, and there every pixel is equally near the
+// top and the bottom. Such a tie goes to a side the border actually covers.
+//
+// The position along the outline is then measured from the top left corner
+// clockwise, so a pattern starts there and runs round the node without a seam,
+// and a lone top border is dashed from left to right.
+func maskBorderOutline(mask *image.Alpha, border utils.Border) {
+	width, height := mask.Rect.Dx(), mask.Rect.Dy()
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	w, h := float64(width), float64(height)
+	period := border.DashPeriod()
+
+	sides := [4]utils.BorderSides{
+		utils.BorderSideTop,
+		utils.BorderSideRight,
+		utils.BorderSideBottom,
+		utils.BorderSideLeft,
+	}
+	var covered [4]bool
+	for i, side := range sides {
+		covered[i] = border.HasSide(side)
+	}
+
+	const eps = 0.001
+
+	for y := 0; y < height; y++ {
+		row := y * mask.Stride
+		fy := float64(y) + 0.5
+
+		for x := 0; x < width; x++ {
+			if mask.Pix[row+x] == 0 {
+				continue
+			}
+
+			fx := float64(x) + 0.5
+			distances := [4]float64{fy, w - fx, h - fy, fx}
+
+			nearest := 0
+			for i := 1; i < 4; i++ {
+				closer := distances[i] < distances[nearest]-eps
+				tied := distances[i] <= distances[nearest]+eps
+				if closer || (tied && covered[i] && !covered[nearest]) {
+					nearest = i
+				}
+			}
+
+			if !covered[nearest] {
+				mask.Pix[row+x] = 0
+				continue
+			}
+
+			var along float64
+			switch nearest {
+			case 0:
+				along = fx
+			case 1:
+				along = w + fy
+			case 2:
+				along = w + h + (w - fx)
+			default:
+				along = w + h + w + (h - fy)
+			}
+
+			if !border.DashCovers(along, period) {
+				mask.Pix[row+x] = 0
+			}
+		}
+	}
 }
 
 func useRoundedRectMaskImage(cache *Cache, w float64, h float64, radii utils.FourValues, onUse func(mask *image.Alpha)) {
@@ -174,6 +257,15 @@ func useRoundedRectMaskImage(cache *Cache, w float64, h float64, radii utils.Fou
 }
 
 func drawRoundedRect(cache *Cache, dst draw.Image, c color.Color, x, y, w, h float64, radii utils.FourValues) {
+	// An empty rectangle draws nothing. image.Rect would otherwise put such a
+	// rectangle back the right way round, and a negative size turned into a
+	// positive one: an inset border on a node thinner than twice its own
+	// width filled the whole node with the mask it was supposed to cut out of
+	// it, and the border disappeared.
+	if w < 0.0001 || h < 0.0001 {
+		return
+	}
+
 	u := getUniform(c)
 	defer uniformPool.Put(u)
 

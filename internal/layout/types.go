@@ -22,6 +22,7 @@ type CalculatedProperties struct {
 	IsChildrenDirectionRow bool
 	Justify                string
 	ChildrenColumnAlign    string
+	ChildrenRowAlign       string
 	IsWrappingEnabled      bool
 	Padding                utils.TopRightBottomLeft
 	LineHeight             float64
@@ -114,14 +115,39 @@ func (nodes Nodes) IterateChildNodes(level int, from int, cb func(cn *Node)) {
 	}
 }
 
+// RowsTotalHeight measures rows by their tallest child.
+//
+// It used to take the height of whichever child came first in the row, while
+// positioning advances to the next row by the tallest one. A row whose first
+// child was the shortest therefore reported a height smaller than what it
+// draws, and a container sized around it clipped its own content.
 func (nodes Nodes) RowsTotalHeight(level int, from int, gap float64) (height float64, count int) {
-	nodes.IterateRows(level, from, func(rowIndex int, node *Node) {
-		if node.IsAbsolutePositioned() {
-			return
+	rowIndex := -1
+	var rowHeight float64
+
+	for i := len(nodes) - 1; i >= from; i-- {
+		n := &nodes[i]
+		if n.Level != level || n.IsAbsolutePositioned() {
+			continue
 		}
-		count += 1
-		height += node.Size.H
-	})
+
+		if rowIndex != n.RowIndex {
+			height += rowHeight
+			rowHeight = 0
+			rowIndex = n.RowIndex
+			count += 1
+		}
+
+		if n.Size.H > rowHeight {
+			rowHeight = n.Size.H
+		}
+	}
+	height += rowHeight
+
+	if count == 0 {
+		return 0, 0
+	}
+
 	return height + float64(count-1)*gap, count
 }
 

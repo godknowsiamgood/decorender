@@ -57,10 +57,11 @@ inner:
     innerDirection: row
     justify: space-evenly
     innerColumnAlign: right
+    innerRowAlign: center
     innerWrap: none
     innerGap: 5
     bkgColor: rgba(239, 83, 80, 0.55)
-    border: 2 salmon inset
+    border: 2 salmon inset dashed/10/4/2/4 top right
     borderRadius: 20
     bkgImage: test_img.jpeg
     bkgImageSize: cover

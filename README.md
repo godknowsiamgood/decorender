@@ -136,6 +136,9 @@ justify: end          # - start (default), center, end, space-between or space-e
                       #   - how children are distributed along innerDirection.
 innerColumnAlign: right # - left (default), center or right - horizontal alignment of
                       #   children of a column.
+innerRowAlign: center # - top (default), center or bottom - vertical alignment of
+                      #   children of a row, within the height of that row. A row is
+                      #   as tall as its tallest child.
 innerWrap: none       # - wrap (default) or none - whether a row wraps when it runs out
                       #   of width.
 innerGap: 5           # - Minimal gap between children.
@@ -145,9 +148,19 @@ innerGap: 5           # - Minimal gap between children.
 bkgColor: salmon      # - Background color. A predefined name, 0xaabbcc, 0xaabbccff,
                       #   rgb(129, 199, 132) or rgba(239, 83, 80, 0.55). A color that
                       #   does not parse is an error, not a transparent element.
-border: 2 salmon inset # - Width, color and placement, in any order and all optional.
-                      #   outset (default) grows the node by the border width, inset
-                      #   draws inside it, center straddles the edge.
+border: 2 salmon inset # - Width, color, placement, sides and dash pattern, in any
+                      #   order and all optional. outset (default) grows the node by
+                      #   the border width, inset draws inside it, center straddles
+                      #   the edge.
+                      # - Naming top, right, bottom or left draws those sides only,
+                      #   so `border: 1 gray top` is a rule along the top edge and
+                      #   a node one pixel high is a horizontal line.
+                      # - dashed breaks the line into dashes and gaps of four times
+                      #   the border width. dashed/10/4/2/4 sets the lengths itself,
+                      #   alternating drawn and skipped like the array given to
+                      #   canvas setLineDash: at most 8 of them, and an odd number
+                      #   repeats with drawn and skipped swapped, so dashed/5/10/5
+                      #   runs 5 on, 10 off, 5 on, 5 off, 10 on, 5 off.
 borderRadius: 20      # - Border radii. 1 to 4 values, like padding (e.g. 15 66).
 bkgImage: pic.jpeg    # - Image for the node background. A local file resolved through
                       #   Options.LocalFiles, or an external one starting with https://
@@ -220,6 +233,17 @@ inner:
     inner:
       - text: '~ string(index) + ". " + value.label'
 ```
+
+Quoting is worth care: it is the whole value that is quoted, `'~ "top/" + string(y)'`
+and not `~ '"top/" + string(y)'`. The second form hands expr a string literal, which
+evaluates to the text of the expression itself.
+
+An expression that does not compile, or that fails against the data, fails the render
+and names the property it came from. So does a property that cannot mean anything,
+such as a direction `absolute` does not know. Both used to fall back to a default
+silently, which left a node unanchored, unsized or uncolored with nothing to say why.
+Numbers stay lenient: a value that does not parse still falls back, since `10px` or an
+empty string are a matter of degree rather than a mistake.
 
 ## Performance
 

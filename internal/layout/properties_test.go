@@ -55,8 +55,60 @@ func TestParseBorderProperty(t *testing.T) {
 		},
 		{
 			name:  "Invalid input with unknown token",
-			input: "1.0 blue dashed",
-			err:   fmt.Errorf("unknown token dashed in border property"),
+			input: "1.0 blue wiggly",
+			err:   fmt.Errorf("unknown token wiggly in border property"),
+		},
+		{
+			name:  "Dash pattern defaults to the border width",
+			input: "2 blue dashed",
+			expected: utils.Border{
+				Width:     2,
+				Color:     color.RGBA{B: 255, A: 255},
+				Type:      utils.BorderTypeOutset,
+				Dashes:    [utils.MaxBorderDashes]float64{8, 8},
+				DashCount: 2,
+			},
+		},
+		{
+			name:  "Dash pattern with its own lengths, in any token order",
+			input: "dashed/10/4/2/4 red 1",
+			expected: utils.Border{
+				Width:     1,
+				Color:     color.RGBA{R: 255, A: 255},
+				Type:      utils.BorderTypeOutset,
+				Dashes:    [utils.MaxBorderDashes]float64{10, 4, 2, 4},
+				DashCount: 4,
+			},
+		},
+		{
+			name:  "Sides accumulate",
+			input: "1 red top left",
+			expected: utils.Border{
+				Width: 1,
+				Color: color.RGBA{R: 255, A: 255},
+				Type:  utils.BorderTypeOutset,
+				Sides: utils.BorderSideTop | utils.BorderSideLeft,
+			},
+		},
+		{
+			name:  "Dash pattern with a length that is not a number",
+			input: "1 red dashed/4/x",
+			err:   fmt.Errorf("dash length \"x\" in dashed/4/x is not a positive number"),
+		},
+		{
+			name:  "Dash pattern of zero length",
+			input: "1 red dashed/0/0",
+			err:   fmt.Errorf("dash pattern of zero length draws nothing"),
+		},
+		{
+			name:  "Dash pattern given twice",
+			input: "1 red dashed dashed/4",
+			err:   fmt.Errorf("trying to specify dash pattern dashed/4, but it is already set"),
+		},
+		{
+			name:  "Dash pattern longer than the cap",
+			input: "1 red dashed/1/1/1/1/1/1/1/1/1",
+			err:   fmt.Errorf("dash pattern dashed/1/1/1/1/1/1/1/1/1 has more than 8 lengths"),
 		},
 		{
 			name:  "Empty input",

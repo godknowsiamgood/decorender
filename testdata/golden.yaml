@@ -38,6 +38,7 @@ sample:
       color: rgb(129, 199, 132)
     - name: rgba
       color: rgba(239, 83, 80, 0.55)
+  rowAligns: [top, center, bottom]
   groups:
     - label: alpha
       items: [1, 2, 3]
@@ -204,6 +205,31 @@ inner:
           - size: 60 20
             bkgColor: 0xffa726
 
+  # ---- innerRowAlign: children across a row ----
+  - id: row-align
+    height: 80
+    innerDirection: row
+    innerGap: 10
+    inner:
+      - forEach: rowAligns
+        width: 240
+        height: 80
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: row
+        innerRowAlign: ~ value
+        innerGap: 6
+        inner:
+          - size: 40 64
+            bkgColor: 0x00897b
+          - size: 40 40
+            bkgColor: 0x26a69a
+          - size: 40 20
+            bkgColor: 0x80cbc4
+          - text: ~ value
+            fontSize: 12
+
   # ---- innerWrap: wrap vs none ----
   - id: wrapping
     height: 100
@@ -265,6 +291,13 @@ inner:
         bkgColor: 0x37474f
         borderRadius: 10
         border: 3 0x81c784 outset
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 10
+        border: 2 0xffd54f dashed inset
+      - size: 90 66
+        bkgColor: 0x37474f
+        border: 2 0x4fc3f7 dashed/10/4/2/4 bottom right
 
   # ---- colour formats, driven by forEach over objects ----
   - id: colors

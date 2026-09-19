@@ -16,6 +16,7 @@ type Node struct {
 	InnerDirection      string      `yaml:"innerDirection"`
 	Justify             string      `yaml:"justify"`
 	ChildrenColumnAlign string      `yaml:"innerColumnAlign"`
+	ChildrenRowAlign    string      `yaml:"innerRowAlign"`
 	ChildrenWrap        string      `yaml:"innerWrap"`
 	Padding             string      `yaml:"padding"`
 	Text                string      `yaml:"text"`
