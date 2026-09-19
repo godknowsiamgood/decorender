@@ -3,10 +3,12 @@ package decorender
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -231,3 +233,65 @@ func TestDebugOnlyKeepsSingleNode(t *testing.T) {
 		t.Errorf("only: got %dx%d, want 40x25 (the marked node alone)", got.Dx(), got.Dy())
 	}
 }
+
+// innerColumnAlign positions every child of a column, not just the first one.
+func TestInnerColumnAlign(t *testing.T) {
+	// Three children of decreasing width stacked in a column. With left align
+	// each starts at 0; with center and right they start at increasing offsets,
+	// so a single mis-aligned child is visible in the span it covers.
+	const containerW = 120
+	widths := []int{120, 60, 20}
+
+	layout := "size: " + itoa(containerW) + " 30\nbkgColor: white\ninnerDirection: column\n" +
+		"innerColumnAlign: %s\ninner:\n"
+	for _, w := range widths {
+		layout += "  - size: " + itoa(w) + " 10\n    bkgColor: black\n"
+	}
+
+	for _, c := range []struct {
+		align string
+		want  []int // expected left edge of each child
+	}{
+		{"left", []int{0, 0, 0}},
+		{"center", []int{0, 30, 50}},
+		{"right", []int{0, 60, 100}},
+	} {
+		src := fmt.Sprintf(layout, c.align)
+
+		r, err := NewRendererWithTemplate([]byte(src), nil)
+		if err != nil {
+			t.Errorf("align %q: parse: %v", c.align, err)
+			continue
+		}
+
+		img, release, err := r.Render(nil, nil)
+		if err != nil {
+			t.Errorf("align %q: render: %v", c.align, err)
+			continue
+		}
+
+		for row, want := range c.want {
+			y := row*10 + 5 // middle of the row, away from any edge blending
+			got := firstDarkPixel(img, y)
+			if got != want {
+				t.Errorf("align %q: child %d (width %d) starts at x=%d, want %d",
+					c.align, row, widths[row], got, want)
+			}
+		}
+		release()
+	}
+}
+
+// firstDarkPixel returns the x of the leftmost non-white pixel on row y, or -1.
+func firstDarkPixel(img image.Image, y int) int {
+	b := img.Bounds()
+	for x := b.Min.X; x < b.Max.X; x++ {
+		r, g, bl, _ := img.At(x, y).RGBA()
+		if r>>8 < 128 && g>>8 < 128 && bl>>8 < 128 {
+			return x - b.Min.X
+		}
+	}
+	return -1
+}
+
+func itoa(v int) string { return strconv.Itoa(v) }

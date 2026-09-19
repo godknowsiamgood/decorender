@@ -227,7 +227,9 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			// do horizontal align for column children
 
 			if !isDirectionRow {
-				nodes.IterateRow(childrenNodesLevel, from, 0, func(cn *Node) {
+				// Every child of a column is its own row, so this must walk all
+				// children: iterating row 0 alone would align only the first.
+				nodes.IterateChildNodes(childrenNodesLevel, from, func(cn *Node) {
 					if cn.IsAbsolutePositioned() {
 						return
 					}
