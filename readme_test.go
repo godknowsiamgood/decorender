@@ -59,7 +59,7 @@ inner:
     innerColumnAlign: right
     innerRowAlign: center
     innerWrap: none
-    innerGap: 5
+    innerGap: 4 10
     bkgColor: rgba(239, 83, 80, 0.55)
     border: 2 salmon inset dashed/10/4/2/4 top right
     borderRadius: 20

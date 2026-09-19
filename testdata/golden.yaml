@@ -230,7 +230,7 @@ inner:
           - text: ~ value
             fontSize: 12
 
-  # ---- innerWrap: wrap vs none ----
+  # ---- innerWrap: wrap vs none, and innerGap as <row> <column> ----
   - id: wrapping
     height: 100
     innerDirection: row
@@ -260,6 +260,18 @@ inner:
           - forEach: 5
             size: 56 24
             bkgColor: 0x455a64
+      - width: 300
+        height: 100
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: row
+        innerWrap: wrap
+        innerGap: 2 16
+        inner:
+          - forEach: 9
+            size: 56 24
+            bkgColor: 0x26a69a
 
   # ---- borderRadius variants and border types ----
   - id: radius-border

@@ -178,7 +178,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 							prevNodeInRow = nil
 						}
-						currentWidth += node.Size.W + whitespaceAfter(node, textWhitespaceWidth) + props.InnerGap
+						currentWidth += node.Size.W + whitespaceAfter(node, textWhitespaceWidth) + props.InnerColumnGap
 					}
 
 					node.RowIndex = currentRowIndex
@@ -203,8 +203,8 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			if props.IsChildrenDirectionRow {
 				var top float64
 				nodes.IterateRows(childrenNodesLevel, from, func(rowIndex int, _ *Node) {
-					totalRowSize, countInRow := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
-					offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalRowSize, newContext.size.W, countInRow)
+					totalRowSize, countInRow := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerColumnGap)
+					offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerColumnGap, totalRowSize, newContext.size.W, countInRow)
 
 					var maxHeight float64
 					nodes.IterateRow(childrenNodesLevel, from, rowIndex, func(cn *Node) {
@@ -232,15 +232,15 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 						})
 					}
 
-					// Rows stack by the gap the layout asked for. The gap
-					// getJustifyOffsetAndGap returns is the horizontal one it
-					// spread the row with, which under space-between grows
+					// Rows stack by the row gap the layout asked for. The
+					// gap getJustifyOffsetAndGap returns is the horizontal one
+					// it spread the row with, which under space-between grows
 					// with the free space left on the line.
-					top += maxHeight + props.InnerGap
+					top += maxHeight + props.InnerRowGap
 				})
 			} else {
-				totalHeight, count := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
-				offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerGap, totalHeight, newContext.size.H, count)
+				totalHeight, count := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerRowGap)
+				offset, gap := getJustifyOffsetAndGap(props.Justify, props.InnerRowGap, totalHeight, newContext.size.H, count)
 				nodes.IterateRows(childrenNodesLevel, from, func(_ int, node *Node) {
 					if node.IsAbsolutePositioned() {
 						return
@@ -271,14 +271,14 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 
 		if props.Size.W == -1 {
 			nodes.IterateRows(childrenNodesLevel, from, func(rowIndex int, _ *Node) {
-				rowWidth, _ := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerGap)
+				rowWidth, _ := nodes.RowTotalWidth(childrenNodesLevel, from, rowIndex, textWhitespaceWidth, props.InnerColumnGap)
 				props.Size.W = math.Max(props.Size.W, rowWidth)
 			})
 			props.Size.W = math.Max(0, props.Size.W+props.Padding.Left()+props.Padding.Right())
 		}
 
 		if props.Size.H == -1 {
-			height, _ := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerGap)
+			height, _ := nodes.RowsTotalHeight(childrenNodesLevel, from, props.InnerRowGap)
 			props.Size.H = math.Max(0, height+props.Padding.Top()+props.Padding.Bottom())
 		}
 

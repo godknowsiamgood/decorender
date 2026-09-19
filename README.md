@@ -144,7 +144,10 @@ innerRowAlign: center # - top (default), center or bottom - vertical alignment o
                       #   as tall as its tallest child.
 innerWrap: none       # - wrap (default) or none - whether a row wraps when it runs out
                       #   of width.
-innerGap: 5           # - Minimal gap between children.
+innerGap: 4 10        # - Minimal gap between children. One value applies to both
+                      #   axes; a pair is <row> <column>, as CSS writes gap - the
+                      #   first value spaces wrapped rows, the second one children
+                      #   within a row.
 
 # Paint
 

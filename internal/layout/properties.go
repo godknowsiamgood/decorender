@@ -57,6 +57,28 @@ func (r *resolver) values(prop string, source string, max int, parentWidth float
 	return parseNValues(r.str(prop, source), max, parentWidth, parentHeight, relativeToWidth, allowNegative)
 }
 
+// gaps resolves innerGap, which is one gap for both axes or the pair
+// "<row> <column>", as CSS writes it: the first value spaces rows from each
+// other, the second one spaces children within a row. A legend that wraps
+// needs them apart - its lines sit close together while its items stay far
+// enough apart to be read as separate.
+//
+// The two are parsed one by one rather than as a pair, so that a percentage
+// lands on the axis it is spent on: a row gap is a share of the height, a
+// column gap a share of the width.
+func (r *resolver) gaps(prop string, source string, size utils.Size) (row float64, column float64) {
+	fields := strings.Fields(r.str(prop, source))
+	if len(fields) == 1 {
+		fields = append(fields, fields[0])
+	}
+	if len(fields) != 2 {
+		return 0, 0
+	}
+	rowValue, _ := parseNValues(fields[0], 1, size.W, size.H, false, false)
+	columnValue, _ := parseNValues(fields[1], 1, size.W, size.H, true, false)
+	return rowValue[0], columnValue[0]
+}
+
 // calculateProperties is currently ugly function that needs refactoring.
 // Maybe we should introduce some fields generic configuration.
 //
@@ -149,7 +171,7 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 	childrenRowAlign := validateStringValue(res.str("innerRowAlign", n.ChildrenRowAlign), []string{"top", "center", "bottom"})
 	childrenWrap := validateStringValue(res.str("innerWrap", n.ChildrenWrap), []string{"wrap", "none"})
 
-	innerGap, _ := res.values("innerGap", n.InnerGap, 1, context.size.W, context.size.H, true, false)
+	innerRowGap, innerColumnGap := res.gaps("innerGap", n.InnerGap, context.size)
 
 	rotation, _ := res.values("rotate", n.Rotation, 1, context.size.W, context.size.H, true, true)
 
@@ -196,7 +218,8 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		FontDescription:        fontDescription,
 		BorderRadius:           borderRadius,
 		AbsolutePosition:       anchors,
-		InnerGap:               innerGap[0],
+		InnerRowGap:            innerRowGap,
+		InnerColumnGap:         innerColumnGap,
 		Rotation:               rotation[0],
 		BkgImageSize:           resolvedBkgImageSize,
 		Border:                 border,

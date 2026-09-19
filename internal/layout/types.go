@@ -28,7 +28,8 @@ type CalculatedProperties struct {
 	LineHeight             float64
 	BorderRadius           utils.FourValues
 	AbsolutePosition       utils.AbsolutePosition
-	InnerGap               float64
+	InnerRowGap            float64
+	InnerColumnGap         float64
 	Rotation               float64
 	BkgImageSize           BkgImageSizeType
 	Border                 utils.Border

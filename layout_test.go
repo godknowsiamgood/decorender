@@ -1,6 +1,7 @@
 package decorender
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"testing"
@@ -299,6 +300,66 @@ inner:
 	}
 	if top != 20 {
 		t.Errorf("the wrapped row starts at %v, want 20", top)
+	}
+}
+
+// innerGap takes the pair "<row> <column>", as CSS writes gap: the first value
+// spaces rows from each other, the second one spaces children within a row.
+// One value still applies to both axes. Until they could be told apart, a
+// legend that wrapped had to choose between lines close together and items
+// far enough apart to be read as separate.
+func TestInnerGapTakesRowAndColumnValues(t *testing.T) {
+	cases := []struct {
+		name   string
+		gap    string
+		column int
+		row    int
+	}{
+		{name: "row and column", gap: "2 20", column: 20, row: 2},
+		{name: "one value for both axes", gap: "6", column: 6, row: 6},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Two 40 wide children fit on a 100 wide line, the third wraps.
+			layout := fmt.Sprintf(`width: 100
+bkgColor: white
+innerDirection: row
+innerWrap: wrap
+innerGap: %s
+inner:
+  - size: 40 20
+    bkgColor: 0x0000ff
+  - size: 40 20
+    bkgColor: 0x0000ff
+  - size: 40 20
+    bkgColor: 0x00ff00
+`, c.gap)
+
+			img := renderLayout(t, layout)
+
+			second := -1
+			for x := 40; x < img.Bounds().Dx(); x++ {
+				if r, g, b := rgb(img.At(x, 10)); r == 0 && g == 0 && b == 255 {
+					second = x
+					break
+				}
+			}
+			if want := 40 + c.column; second != want {
+				t.Errorf("the second child starts at %v, want %v", second, want)
+			}
+
+			top := -1
+			for y := 0; y < img.Bounds().Dy(); y++ {
+				if r, g, b := rgb(img.At(20, y)); r == 0 && g == 255 && b == 0 {
+					top = y
+					break
+				}
+			}
+			if want := 20 + c.row; top != want {
+				t.Errorf("the wrapped row starts at %v, want %v", top, want)
+			}
+		})
 	}
 }
 
