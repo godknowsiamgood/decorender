@@ -99,6 +99,9 @@ fontFaces:            # - Font faces used in the layout. Roboto 400 is built in 
     style: italic     # - normal (default) or italic.
     weight: 400
     file: ./Inter-italic-400.ttf
+                      # - One file is one face. A variable font renders as its default
+                      #   instance and nothing else, so declaring a weight that only
+                      #   its axes could produce is refused rather than drawn wrong.
 sample:               # - Arbitrary object used to preview the layout. Rendered only
                       #   when RenderOptions.UseSample is set, which is what the dev
                       #   server does.
@@ -183,8 +186,13 @@ lineHeight: 30        # - Height of one line of text. Inherited. Defaults to a v
 
 # Repetition
 
-forEach: Array        # - Name of a field in the current data. The node is repeated once
-                      #   per element. A number repeats it that many times instead.
+forEach: rows         # - Name of a field in the current data holding a list: the node
+                      #   is repeated once per element. A number repeats it that many
+                      #   times instead.
+                      # - An expression is repeated over whatever it evaluates to: a
+                      #   list, a count, or a flag. `forEach: ~ value.goals` draws the
+                      #   node only in the panels that have one, and `~ filter(rows,
+                      #   .visible)` only over the rows worth drawing.
 ```
 
 ### Units
@@ -219,6 +227,10 @@ the layout is rendered with.
 Inside a `forEach`, three more names are available, on the repeated node and on all
 of its descendants: `value` is the current element, `index` its position, and
 `parent` the collection it came from.
+
+Fields of the data are looked up the way expr looks them up, in expressions and in
+`forEach` alike: an `expr:"rows"` tag renames a field, and `expr:"-"` hides it. So a
+layout can stay lowercase over Go structs.
 
 ```yaml
 sample:

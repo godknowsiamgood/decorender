@@ -2,6 +2,7 @@ package fonts
 
 import (
 	_ "embed"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/fs"
@@ -132,6 +133,15 @@ func (r *Registry) loadFont(template FaceTemplate, content []byte, fsys fs.FS) e
 		}
 	}
 
+	// A variable font carries its weight on an axis, and golang.org/x/image
+	// has no notion of axes: it renders the default instance and nothing
+	// else. Declaring 700 against such a file therefore drew the same glyphs
+	// as 400, with nothing said about it.
+	if def, ok := variableAxisDefault(content, "wght"); ok && template.Weight != "" && int(def) != loaded.weight {
+		return fmt.Errorf("font file %v is a variable font, of which only the default instance is rendered - that is weight %v, not the declared %v. Declare that weight for this file, or use a static instance of the weight you want",
+			template.File, int(def), loaded.weight)
+	}
+
 	fnt, err := opentype.Parse(content)
 	if err != nil {
 		return fmt.Errorf("can't parse font file %v", template.File)
@@ -141,6 +151,76 @@ func (r *Registry) loadFont(template FaceTemplate, content []byte, fsys fs.FS) e
 	r.faces = append(r.faces, loaded)
 
 	return nil
+}
+
+const (
+	sfntHeaderSize     = 12
+	tableRecordSize    = 16
+	fvarHeaderSize     = 16
+	fvarAxisRecordSize = 20
+)
+
+// findTable returns the contents of one table of a font file.
+func findTable(content []byte, tag string) ([]byte, bool) {
+	if len(content) < sfntHeaderSize {
+		return nil, false
+	}
+
+	numTables := int(binary.BigEndian.Uint16(content[4:]))
+	if len(content) < sfntHeaderSize+numTables*tableRecordSize {
+		return nil, false
+	}
+
+	for i := 0; i < numTables; i++ {
+		record := content[sfntHeaderSize+i*tableRecordSize:]
+		if string(record[:4]) != tag {
+			continue
+		}
+
+		offset := int(binary.BigEndian.Uint32(record[8:]))
+		length := int(binary.BigEndian.Uint32(record[12:]))
+		if offset < 0 || length < 0 || offset+length > len(content) {
+			return nil, false
+		}
+
+		return content[offset : offset+length], true
+	}
+
+	return nil, false
+}
+
+// variableAxisDefault reports the default value of one variation axis, and
+// whether the file has that axis at all. A font without an fvar table is not
+// variable and has none.
+func variableAxisDefault(content []byte, axis string) (float64, bool) {
+	fvar, ok := findTable(content, "fvar")
+	if !ok || len(fvar) < fvarHeaderSize {
+		return 0, false
+	}
+
+	axesOffset := int(binary.BigEndian.Uint16(fvar[4:]))
+	axisCount := int(binary.BigEndian.Uint16(fvar[8:]))
+	axisSize := int(binary.BigEndian.Uint16(fvar[10:]))
+	if axisSize < fvarAxisRecordSize {
+		return 0, false
+	}
+
+	for i := 0; i < axisCount; i++ {
+		start := axesOffset + i*axisSize
+		if start < 0 || start+fvarAxisRecordSize > len(fvar) {
+			break
+		}
+
+		record := fvar[start:]
+		if string(record[:4]) != axis {
+			continue
+		}
+
+		// Axis values are 16.16 fixed point.
+		return float64(int32(binary.BigEndian.Uint32(record[8:]))) / 65536, true
+	}
+
+	return 0, false
 }
 
 // GetFont returns the font nearest by weight within the requested family and style.

@@ -301,3 +301,109 @@ inner:
 		t.Errorf("the wrapped row starts at %v, want 20", top)
 	}
 }
+
+// countAcross returns how many pixels of the given color a row of the image
+// holds, which is how these tests count the nodes a forEach produced.
+func countAcross(img image.Image, y int, want color.RGBA) int {
+	n := 0
+	for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+		if r, g, b := rgb(img.At(x, y)); r == want.R && g == want.G && b == want.B {
+			n++
+		}
+	}
+	return n
+}
+
+// forEach used to take the name of a field and nothing else: an expression was
+// evaluated, but its result was turned into text and looked up as a name. It
+// now takes what the expression evaluated to - a list to walk, a count to
+// repeat, or a flag that decides whether the node is drawn at all.
+func TestForEachTakesAnExpressionResult(t *testing.T) {
+	const sample = `sample:
+  rows: [a, b, c]
+  empty: []
+  flag: true
+  off: false
+  count: 2
+`
+
+	cases := []struct {
+		forEach string
+		nodes   int
+	}{
+		{forEach: "rows", nodes: 3},            // a name, as before
+		{forEach: "2", nodes: 2},               // a count, as before
+		{forEach: "~ rows", nodes: 3},          // the list itself
+		{forEach: "~ empty", nodes: 0},         // a list with nothing in it
+		{forEach: "~ missing", nodes: 0},       // not there at all
+		{forEach: "~ flag", nodes: 1},          // drawn
+		{forEach: "~ off", nodes: 0},           // not drawn
+		{forEach: "~ count", nodes: 2},         // a count
+		{forEach: "~ len(rows) - 1", nodes: 2}, // and any expression giving one
+	}
+
+	for _, c := range cases {
+		t.Run(c.forEach, func(t *testing.T) {
+			layout := "size: 100 10\nbkgColor: white\ninnerDirection: row\n" + sample +
+				"inner:\n  - forEach: '" + c.forEach + "'\n    size: 10 10\n    bkgColor: 0x0000ff\n"
+
+			img := renderLayout(t, layout)
+
+			if got := countAcross(img, 5, color.RGBA{B: 255}); got != c.nodes*10 {
+				t.Errorf("forEach %q drew %v nodes, want %v", c.forEach, got/10, c.nodes)
+			}
+		})
+	}
+}
+
+// A name means the same thing in a forEach as in an expression: expr renames a
+// field by its `expr` tag, and forEach looks it up by exact field name, so a
+// layout written against tagged data had to spell one of them differently.
+func TestForEachFollowsExprTags(t *testing.T) {
+	type row struct {
+		Color string `expr:"color"`
+	}
+	type data struct {
+		Rows   []row `expr:"rows"`
+		Hidden []row `expr:"-"`
+	}
+
+	const layout = `size: 100 10
+bkgColor: white
+innerDirection: row
+inner:
+  - forEach: rows
+    size: 10 10
+    bkgColor: ~ value.color
+`
+
+	r, err := NewRendererWithTemplate([]byte(layout), nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	img, release, err := r.Render(data{Rows: []row{{Color: "0x0000ff"}, {Color: "0x0000ff"}}}, nil)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	defer release()
+
+	if got := countAcross(img, 5, color.RGBA{B: 255}); got != 20 {
+		t.Errorf("forEach over a tagged field drew %v nodes, want 2", got/10)
+	}
+
+	// A field the tag hides is not reachable by its Go name either.
+	hidden := `size: 100 10
+inner:
+  - forEach: Hidden
+    size: 10 10
+    bkgColor: salmon
+`
+	hr, err := NewRendererWithTemplate([]byte(hidden), nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if err := hr.RenderAndWrite(data{}, EncodeFormatNone, nil, nil); err == nil {
+		t.Error("a field hidden by its tag was still found by forEach")
+	}
+}

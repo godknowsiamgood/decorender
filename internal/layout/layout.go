@@ -76,9 +76,13 @@ func Release(nodes Nodes) {
 func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, value any, parentValue any, currentValueIndex int) error {
 	nodeLevel := context.level + 1
 
-	forEach, err := replaceWithValues(pn.ForEach, value, parentValue, currentValueIndex, context.cache)
-	if err != nil {
-		return err
+	var forEach any = pn.ForEach
+	if IsExpression(pn.ForEach) {
+		evaluated, err := evaluate(pn.ForEach, value, parentValue, currentValueIndex, context.cache)
+		if err != nil {
+			return fmt.Errorf("forEach %q: %w", pn.ForEach, err)
+		}
+		forEach = evaluated
 	}
 
 	return RunForEach(value, forEach, currentValueIndex, func(currentValue any, iteratorValue any, currentValueIndex int) error {

@@ -1,7 +1,9 @@
 package fonts
 
 import (
+	"encoding/binary"
 	"os"
+	"strings"
 	"testing"
 
 	"golang.org/x/image/font"
@@ -132,4 +134,76 @@ func TestFaceSetsDoNotShareFaces(t *testing.T) {
 
 	reg.ReleaseFaceSet(first)
 	reg.ReleaseFaceSet(second)
+}
+
+// variableFont builds the smallest file the axis reader looks at: a table
+// directory with an fvar table holding one axis. Real variable fonts cannot be
+// checked in here, so the bytes are made by hand.
+func variableFont(axis string, defaultValue float64) []byte {
+	const (
+		headerSize = 12
+		recordSize = 16
+		axisRecord = 20
+	)
+
+	fvar := make([]byte, 16+axisRecord)
+	binary.BigEndian.PutUint32(fvar[0:], 0x00010000) // version
+	binary.BigEndian.PutUint16(fvar[4:], 16)         // axes start right after the header
+	binary.BigEndian.PutUint16(fvar[8:], 1)          // one axis
+	binary.BigEndian.PutUint16(fvar[10:], axisRecord)
+
+	copy(fvar[16:], axis)
+	binary.BigEndian.PutUint32(fvar[16+4:], uint32(int32(100*65536)))          // min
+	binary.BigEndian.PutUint32(fvar[16+8:], uint32(int32(defaultValue*65536))) // default
+	binary.BigEndian.PutUint32(fvar[16+12:], uint32(int32(900*65536)))         // max
+
+	file := make([]byte, headerSize+recordSize)
+	binary.BigEndian.PutUint32(file[0:], 0x00010000)
+	binary.BigEndian.PutUint16(file[4:], 1) // one table
+	copy(file[headerSize:], "fvar")
+	binary.BigEndian.PutUint32(file[headerSize+8:], uint32(len(file)))
+	binary.BigEndian.PutUint32(file[headerSize+12:], uint32(len(fvar)))
+
+	return append(file, fvar...)
+}
+
+func TestVariableAxisDefault(t *testing.T) {
+	if _, ok := variableAxisDefault(variableFont("wght", 400), "wght"); !ok {
+		t.Error("the wght axis of a variable font was not found")
+	}
+	if got, _ := variableAxisDefault(variableFont("wght", 400), "wght"); got != 400 {
+		t.Errorf("wght default = %v, want 400", got)
+	}
+	if _, ok := variableAxisDefault(variableFont("wdth", 100), "wght"); ok {
+		t.Error("a font without a wght axis reported one")
+	}
+
+	static, err := os.ReadFile(testFontFile)
+	if err != nil {
+		t.Fatalf("reading %v: %v", testFontFile, err)
+	}
+	if _, ok := variableAxisDefault(static, "wght"); ok {
+		t.Error("a static font reported a wght axis")
+	}
+}
+
+// Only the default instance of a variable font is rendered, so a weight it
+// cannot produce has to be refused rather than quietly drawn at 400.
+func TestVariableFontRefusesAWeightItCannotRender(t *testing.T) {
+	r := &Registry{}
+
+	err := r.loadFont(FaceTemplate{Family: "Var", Weight: "700", File: "var.ttf"}, variableFont("wght", 400), nil)
+	if err == nil {
+		t.Fatal("declaring weight 700 against a variable font was accepted")
+	}
+	if !strings.Contains(err.Error(), "variable font") {
+		t.Errorf("error does not explain the problem: %v", err)
+	}
+
+	// The weight the file does render is fine - it parses no further here,
+	// so only the absence of the variable font error matters.
+	err = r.loadFont(FaceTemplate{Family: "Var", Weight: "400", File: "var.ttf"}, variableFont("wght", 400), nil)
+	if err != nil && strings.Contains(err.Error(), "variable font") {
+		t.Errorf("the default weight was refused: %v", err)
+	}
 }
