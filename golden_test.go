@@ -295,3 +295,53 @@ func firstDarkPixel(img image.Image, y int) int {
 }
 
 func itoa(v int) string { return strconv.Itoa(v) }
+
+// A descendant of a forEach node sees the loop counter of the iteration it is
+// part of. It used to see 0, because re-entering the loop machinery for a node
+// with no forEach of its own reset the index.
+func TestForEachIndexReachesDescendants(t *testing.T) {
+	// Each repeated row holds a bar whose width is driven by index, so the
+	// counter each descendant saw can be read straight off the image.
+	const layout = `size: 200 60
+bkgColor: white
+innerDirection: column
+inner:
+  - forEach: Items
+    width: 200
+    height: 20
+    inner:
+      - height: 20
+        width: ~ (index + 1) * 50
+        bkgColor: black
+`
+
+	r, err := NewRendererWithTemplate([]byte(layout), nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	img, release, err := r.Render(struct{ Items []string }{Items: []string{"a", "b", "c"}}, nil)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	defer release()
+
+	for row, want := range []int{50, 100, 150} {
+		if got := darkRunWidth(img, row*20+10); got != want {
+			t.Errorf("row %d: bar is %dpx wide, want %dpx (index %d)", row, got, want, row)
+		}
+	}
+}
+
+// darkRunWidth counts the dark pixels on row y.
+func darkRunWidth(img image.Image, y int) int {
+	b := img.Bounds()
+	n := 0
+	for x := b.Min.X; x < b.Max.X; x++ {
+		r, g, bl, _ := img.At(x, y).RGBA()
+		if r>>8 < 128 && g>>8 < 128 && bl>>8 < 128 {
+			n++
+		}
+	}
+	return n
+}

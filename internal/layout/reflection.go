@@ -43,9 +43,16 @@ func replaceWithValues(str string, value any, parentValue any, valueIndex int, c
 	}
 }
 
-func RunForEach(parentValue interface{}, arrayFieldName string, cb func(value any, parentValue any, index int) error) error {
+// RunForEach invokes cb once per element of the named collection, or exactly
+// once when no collection is named.
+//
+// index is the caller's current iteration counter, and is what cb receives in
+// that second case. A node without a forEach of its own is still inside
+// whatever iteration an ancestor started, so reporting 0 there would make
+// `index` collapse to the first element on every descendant.
+func RunForEach(parentValue interface{}, arrayFieldName string, index int, cb func(value any, parentValue any, index int) error) error {
 	if arrayFieldName == "" {
-		return cb(parentValue, nil, 0)
+		return cb(parentValue, nil, index)
 	}
 
 	if num, err := strconv.Atoi(arrayFieldName); err == nil {

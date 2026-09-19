@@ -430,9 +430,8 @@ inner:
             fontColor: 0x9e9e9e
 
   # ---- nested forEach with value / index / parent ----
-  # `value` and `parent` resolve on descendants of the repeated node, but
-  # `index` is only the loop counter on the node carrying forEach itself, so the
-  # counters below sit directly on the repeated cells.
+  # `value`, `parent` and `index` all resolve on the repeated node and on its
+  # descendants, so the third row below reads the counter from a child.
   - id: foreach
     width: 100%
     bkgColor: 0x2b2b3a
@@ -482,3 +481,25 @@ inner:
             padding: 8 8
             text: '~ "n=" + string(index)'
             fontSize: 12
+
+      # index read from a descendant of the repeated node rather than from it
+      - innerDirection: row
+        innerGap: 8
+        height: 30
+        inner:
+          - width: 150
+            height: 30
+            bkgColor: 0x455a64
+            borderRadius: 4
+            padding: 8 10
+            text: nested index
+            fontSize: 12
+          - forEach: 4
+            width: 78
+            height: 30
+            bkgColor: 0x7e57c2
+            borderRadius: 4
+            padding: 8 8
+            inner:
+              - text: '~ "i=" + string(index)'
+                fontSize: 12

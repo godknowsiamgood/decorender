@@ -81,7 +81,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		return err
 	}
 
-	return RunForEach(value, forEach, func(currentValue any, iteratorValue any, currentValueIndex int) error {
+	return RunForEach(value, forEach, currentValueIndex, func(currentValue any, iteratorValue any, currentValueIndex int) error {
 		if iteratorValue == nil {
 			iteratorValue = parentValue
 		}
