@@ -165,7 +165,7 @@ func (r *Decorender) RenderAndWrite(userData any, format EncodeFormat, w io.Writ
 // so make sure to call release function when you are done with image.
 func (r *Decorender) Render(userData any, opts *RenderOptions) (dst image.Image, release func(), err error) {
 	if opts != nil && opts.UseSample {
-		userData = r.root.Sample
+		userData = r.root.Sample.Value
 	}
 
 	// Font faces are not safe to share between goroutines, so every render

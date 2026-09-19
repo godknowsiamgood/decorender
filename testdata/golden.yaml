@@ -31,9 +31,9 @@ sample:
     - name: named
       color: salmon
     - name: hex
-      color: '0x4fc3f7'
+      color: 0x4fc3f7
     - name: hex+alpha
-      color: '0xffd54f88'
+      color: 0xffd54f88
     - name: rgb
       color: rgb(129, 199, 132)
     - name: rgba

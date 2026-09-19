@@ -345,3 +345,61 @@ func darkRunWidth(img image.Image, y int) int {
 	}
 	return n
 }
+
+// A hex color written plainly in a sample is an integer as far as YAML is
+// concerned. It used to reach the color parser as its decimal spelling, fail,
+// and render transparent without a word.
+func TestSampleHexColorRenders(t *testing.T) {
+	// Quoted and unquoted spellings of the same color must render identically,
+	// and neither may come out transparent.
+	const layout = `size: 40 40
+bkgColor: white
+sample:
+  plain: 0x4fc3f7
+  quoted: '0x4fc3f7'
+  withAlpha: 0xffd54fff
+  notAColor: 0xff
+inner:
+  - size: 40 10
+    bkgColor: ~ plain
+  - size: 40 10
+    bkgColor: ~ quoted
+  - size: 40 10
+    bkgColor: ~ withAlpha
+  - size: 40 10
+    bkgColor: ~ string(notAColor)
+`
+
+	r, err := NewRendererWithTemplate([]byte(layout), nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	img, release, err := r.Render(nil, &RenderOptions{UseSample: true})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	defer release()
+
+	at := func(row int) (uint32, uint32, uint32) {
+		cr, cg, cb, _ := img.At(20, row*10+5).RGBA()
+		return cr >> 8, cg >> 8, cb >> 8
+	}
+
+	wantR, wantG, wantB := uint32(0x4f), uint32(0xc3), uint32(0xf7)
+	for _, row := range []int{0, 1} {
+		if cr, cg, cb := at(row); cr != wantR || cg != wantG || cb != wantB {
+			t.Errorf("row %d: got #%02x%02x%02x, want #%02x%02x%02x",
+				row, cr, cg, cb, wantR, wantG, wantB)
+		}
+	}
+	if cr, cg, cb := at(2); cr != 0xff || cg != 0xd5 || cb != 0x4f {
+		t.Errorf("row 2 (8-digit hex): got #%02x%02x%02x, want #ffd54f", cr, cg, cb)
+	}
+	// 0xff is not a color, so it stays an integer and the expression above
+	// stringifies it to "255" - which the color parser rejects, leaving the
+	// bar transparent over the white background.
+	if cr, cg, cb := at(3); cr != 0xff || cg != 0xff || cb != 0xff {
+		t.Errorf("row 3: a short hex scalar must stay an integer, got #%02x%02x%02x", cr, cg, cb)
+	}
+}
