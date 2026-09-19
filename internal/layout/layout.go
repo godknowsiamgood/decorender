@@ -86,7 +86,10 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 			iteratorValue = parentValue
 		}
 
-		props := calculateProperties(pn, context, currentValue, iteratorValue, currentValueIndex)
+		props, err := calculateProperties(pn, context, currentValue, iteratorValue, currentValueIndex)
+		if err != nil {
+			return fmt.Errorf("%s: %w", nodeRef(pn), err)
+		}
 
 		newContext := context
 		newContext.props = props

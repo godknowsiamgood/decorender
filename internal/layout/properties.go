@@ -23,7 +23,12 @@ const (
 
 // calculateProperties is currently ugly function that needs refactoring.
 // Maybe we should introduce some fields generic configuration.
-func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, parentData any, currentValueIndex int) CalculatedProperties {
+//
+// Only colors are reported as errors. Every other property here falls back to
+// a default when it does not parse, which is a deliberate looseness the
+// renderer has always had; a color has no usable fallback, because the zero
+// RGBA is fully transparent and simply makes the element vanish.
+func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, parentData any, currentValueIndex int) (CalculatedProperties, error) {
 	padding, _ := parseNValues(n.Padding, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
 	lineHeight, _ := parseNValues(n.LineHeight, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
 	borderRadius, _ := parseNValues(n.BorderRadius, 4, context.size.W, context.size.H, data, parentData, currentValueIndex, false, false, context.cache)
@@ -51,17 +56,26 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 
 	backgroundColor := color.RGBA{A: 0}
 	if n.BkgColor != "" {
-		backgroundColor, _ = parseColor(replaceWithValuesUnsafe(n.BkgColor, data, parentData, currentValueIndex, context.cache))
+		c, err := resolveColor("bkgColor", n.BkgColor, data, parentData, currentValueIndex, context.cache)
+		if err != nil {
+			return CalculatedProperties{}, err
+		}
+		backgroundColor = c
 	}
 
 	bkgImageSize := validateStringValue(n.BkgImageSize, []string{"cover", "contain"})
 
 	fontColor := context.props.FontColor // inherited
-	if n.FontColor != "" {
-		fontColor, _ = parseColor(replaceWithValuesUnsafe(n.FontColor, data, parentData, currentValueIndex, context.cache))
-	}
-	if n.Color != "" {
-		fontColor, _ = parseColor(replaceWithValuesUnsafe(n.Color, data, parentData, currentValueIndex, context.cache))
+	// Order matters: `color` is the alias and wins when both are given.
+	for _, f := range []struct{ prop, source string }{{"fontColor", n.FontColor}, {"color", n.Color}} {
+		if f.source == "" {
+			continue
+		}
+		c, err := resolveColor(f.prop, f.source, data, parentData, currentValueIndex, context.cache)
+		if err != nil {
+			return CalculatedProperties{}, err
+		}
+		fontColor = c
 	}
 
 	fontDescription := context.props.FontDescription // inherited
@@ -97,7 +111,10 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 
 	rotation, _ := parseNValues(n.Rotation, 1, context.size.W, context.size.H, data, parentData, currentValueIndex, true, true, context.cache)
 
-	border, _ := parseBorderProperty(replaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex, context.cache))
+	border, err := parseBorderProperty(replaceWithValuesUnsafe(n.Border, data, parentData, currentValueIndex, context.cache))
+	if err != nil {
+		return CalculatedProperties{}, fmt.Errorf("border: %w", err)
+	}
 
 	offsetAnchors := parseAnchors(n.Offset, data, parentData, currentValueIndex, context.cache)
 
@@ -134,7 +151,28 @@ func calculateProperties(n parsing.Node, context layoutPhaseContext, data any, p
 		BkgImageSize:           resolvedBkgImageSize,
 		Border:                 border,
 		Offset:                 utils.TopRightBottomLeft{offsetAnchors.Top(), offsetAnchors.Right(), offsetAnchors.Bottom(), offsetAnchors.Left()},
+	}, nil
+}
+
+// resolveColor evaluates a color property and says which one failed.
+//
+// A color that did not parse used to be discarded along with its error,
+// leaving the zero RGBA: fully transparent. A misspelt color name, or an
+// expression that did not resolve, therefore produced an invisible element and
+// no diagnostic whatsoever.
+func resolveColor(prop string, source string, data any, parentData any, currentValueIndex int, cache *Cache) (color.RGBA, error) {
+	resolved := replaceWithValuesUnsafe(source, data, parentData, currentValueIndex, cache)
+
+	c, err := parseColor(resolved)
+	if err == nil {
+		return c, nil
 	}
+
+	// An expression rarely looks like what it evaluated to, so name both.
+	if strings.HasPrefix(source, "~") {
+		return color.RGBA{}, fmt.Errorf("%s %q: %w", prop, source, err)
+	}
+	return color.RGBA{}, fmt.Errorf("%s: %w", prop, err)
 }
 
 // nextField returns the next whitespace-separated field of s along with the
@@ -518,4 +556,20 @@ func parseFontString(prop string, fd fonts.FaceDescription, parentWidth float64,
 	}
 
 	return fd
+}
+
+// nodeRef names a node in an error message. Ids are optional, so fall back to
+// the node's text, and then to nothing at all.
+func nodeRef(n parsing.Node) string {
+	if n.Id != "" {
+		return "node " + n.Id
+	}
+	if n.Text != "" {
+		text := []rune(n.Text)
+		if len(text) > 30 {
+			return fmt.Sprintf("node with text %q...", string(text[:30]))
+		}
+		return fmt.Sprintf("node with text %q", n.Text)
+	}
+	return "node"
 }

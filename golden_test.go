@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -358,7 +359,6 @@ sample:
   plain: 0x4fc3f7
   quoted: '0x4fc3f7'
   withAlpha: 0xffd54fff
-  notAColor: 0xff
 inner:
   - size: 40 10
     bkgColor: ~ plain
@@ -366,8 +366,6 @@ inner:
     bkgColor: ~ quoted
   - size: 40 10
     bkgColor: ~ withAlpha
-  - size: 40 10
-    bkgColor: ~ string(notAColor)
 `
 
 	r, err := NewRendererWithTemplate([]byte(layout), nil)
@@ -396,10 +394,114 @@ inner:
 	if cr, cg, cb := at(2); cr != 0xff || cg != 0xd5 || cb != 0x4f {
 		t.Errorf("row 2 (8-digit hex): got #%02x%02x%02x, want #ffd54f", cr, cg, cb)
 	}
-	// 0xff is not a color, so it stays an integer and the expression above
-	// stringifies it to "255" - which the color parser rejects, leaving the
-	// bar transparent over the white background.
-	if cr, cg, cb := at(3); cr != 0xff || cg != 0xff || cb != 0xff {
-		t.Errorf("row 3: a short hex scalar must stay an integer, got #%02x%02x%02x", cr, cg, cb)
+}
+
+// Only scalars shaped like a color are re-tagged. 0xff is a number, and using
+// it as one must keep working.
+func TestSampleShortHexStaysANumber(t *testing.T) {
+	const layout = `size: 40 40
+bkgColor: white
+sample:
+  n: 0xff
+inner:
+  - height: 10
+    width: ~ n / 10
+    bkgColor: black
+`
+
+	r, err := NewRendererWithTemplate([]byte(layout), nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	img, release, err := r.Render(nil, &RenderOptions{UseSample: true})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	defer release()
+
+	// 0xff as a number is 255, so the bar is 25px wide after integer division.
+	if got := darkRunWidth(img, 5); got != 25 {
+		t.Errorf("bar is %dpx wide, want 25px (0xff read as 255)", got)
+	}
+}
+
+// A color that does not parse used to be discarded along with its error,
+// leaving a fully transparent element and no way to tell what went wrong.
+func TestUnparseableColorIsReported(t *testing.T) {
+	for _, c := range []struct {
+		name, layout string
+		want         []string // fragments the message must carry
+	}{
+		{
+			name:   "misspelt bkgColor",
+			layout: "id: header\nsize: 10 10\nbkgColor: salmn\n",
+			want:   []string{"header", "bkgColor", "salmn"},
+		},
+		{
+			name:   "misspelt fontColor",
+			layout: "size: 10 10\nfontColor: blak\ntext: hi\n",
+			want:   []string{"fontColor", "blak"},
+		},
+		{
+			name:   "misspelt color alias",
+			layout: "size: 10 10\ncolor: reed\ntext: hi\n",
+			want:   []string{"color", "reed"},
+		},
+		{
+			// The expression is named alongside what it resolved to, because
+			// the two rarely look alike.
+			name:   "expression resolving to a non-color",
+			layout: "size: 10 10\nsample:\n  c: nope\nbkgColor: ~ c\n",
+			want:   []string{"bkgColor", "~ c", "nope"},
+		},
+		{
+			name:   "misspelt border color",
+			layout: "size: 10 10\nborder: 2 salmn\n",
+			want:   []string{"border", "salmn"},
+		},
+		{
+			// The node carries no id, so the message falls back to its text.
+			name:   "unnamed node falls back to text",
+			layout: "size: 10 10\ninner:\n  - text: a label\n    color: nosuchcolor\n",
+			want:   []string{"a label", "color", "nosuchcolor"},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r, err := NewRendererWithTemplate([]byte(c.layout), nil)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+
+			_, _, err = r.Render(nil, &RenderOptions{UseSample: true})
+			if err == nil {
+				t.Fatal("render succeeded; an unparseable color must be reported")
+			}
+			for _, fragment := range c.want {
+				if !strings.Contains(err.Error(), fragment) {
+					t.Errorf("message %q does not mention %q", err, fragment)
+				}
+			}
+		})
+	}
+}
+
+// Colors that do parse must keep working, including the inherited ones.
+func TestValidColorsStillRender(t *testing.T) {
+	const layout = `size: 20 20
+bkgColor: rgba(239, 83, 80, 0.55)
+color: 0x102030
+inner:
+  - size: 20 10
+    bkgColor: 0xffd54f88
+    border: 2 outset salmon
+    text: x
+`
+	r, err := NewRendererWithTemplate([]byte(layout), nil)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if _, _, err = r.Render(nil, nil); err != nil {
+		t.Fatalf("render: %v", err)
 	}
 }
