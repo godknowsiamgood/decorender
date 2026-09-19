@@ -3,10 +3,14 @@ package decorender
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 )
 
+// TestFull renders the example layout the README points at. It writes into a
+// temporary directory: the checked-in test.png is documentation, not an
+// artefact the suite should rewrite on every run.
 func TestFull(t *testing.T) {
 	d, err := NewRenderer("./test.yaml", &Options{LocalFiles: os.DirFS(".")})
 	if err != nil {
@@ -14,11 +18,8 @@ func TestFull(t *testing.T) {
 		return
 	}
 
-	err = d.RenderToFile(nil, "test.png", &RenderOptions{
-		UseSample: true,
-	})
-
-	if err != nil {
+	out := filepath.Join(t.TempDir(), "test.png")
+	if err = d.RenderToFile(nil, out, &RenderOptions{UseSample: true}); err != nil {
 		t.Errorf("unexpected error while rendering: %v", err)
 	}
 }

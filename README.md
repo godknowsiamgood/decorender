@@ -86,6 +86,14 @@ inner:                  # - Child nodes.
 ```
 See `test.yaml` and `test.png` for more examples.
 
+`testdata/golden.yaml` exercises every key in the table above and is rendered to
+`testdata/golden.png`, which the test suite compares against. After an intentional
+rendering change, regenerate it and inspect the result before committing:
+
+```
+go test -run TestGoldenRender -update-golden
+```
+
 ### Templates with Expr
 In almost any field, you can use an expression instead of a fixed one. `github.com/antonmedv/expr` is used. Just write `~ Field` to access to field. In the context of loops there are variables `value`, `index` and `parent`.
 

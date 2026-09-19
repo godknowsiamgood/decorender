@@ -1,0 +1,484 @@
+# Reference layout exercising every feature decorender supports.
+# Rendered to testdata/golden.png; regenerate with:
+#   go test -run TestGoldenRender -update-golden
+#
+# The only parser key deliberately left out is `only`, which is a debug
+# directive that discards every other node and so cannot coexist here.
+
+width: 1000
+bkgColor: 0x1e1e28
+color: white
+font: Roboto 13 400
+scale: 1
+innerDirection: column
+padding: 20
+innerGap: 12
+
+fontFaces:
+  - family: Golden
+    style: normal
+    weight: 400
+    file: internal/fonts/default.ttf
+  - family: Golden
+    style: italic
+    weight: 700
+    file: internal/fonts/default.ttf
+
+sample:
+  title: Decorender feature coverage
+  half: 50%
+  swatches:
+    - name: named
+      color: salmon
+    - name: hex
+      color: '0x4fc3f7'
+    - name: hex+alpha
+      color: '0xffd54f88'
+    - name: rgb
+      color: rgb(129, 199, 132)
+    - name: rgba
+      color: rgba(239, 83, 80, 0.55)
+  groups:
+    - label: alpha
+      items: [1, 2, 3]
+    - label: beta
+      items: [4, 5]
+  prose: A para-graph that wraps across several lines, with a hyphen-ated word and a non&nbsp;breaking pair held together.
+
+inner:
+
+  # ---- expressions: top-level field access, font size + weight ----
+  - text: ~ title
+    font: 011 700
+    fontSize: 21
+    height: 30
+
+  # ---- sizing units: px, %, w-relative, h-relative, width/height ----
+  - id: sizing
+    height: 54
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 8
+    innerDirection: row
+    innerGap: 8
+    inner:
+      - size: 90 38
+        bkgColor: 0x7e57c2
+      - width: ~ half
+        height: 38
+        bkgColor: 0x5c6bc0
+      - size: 0.08w 38
+        bkgColor: 0x42a5f5
+      - width: 60
+        height: 0.6h
+        bkgColor: 0x26c6da
+
+  # ---- justify along a row ----
+  - id: justify-row
+    width: 100%
+    height: 46
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 6
+    innerDirection: row
+    justify: space-between
+    inner:
+      - size: 60 34
+        bkgColor: 0xef5350
+      - size: 60 34
+        bkgColor: 0xffa726
+      - size: 60 34
+        bkgColor: 0x66bb6a
+
+  - id: justify-evenly
+    width: 100%
+    height: 46
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 6
+    innerDirection: row
+    justify: space-evenly
+    inner:
+      - size: 60 34
+        bkgColor: 0xef5350
+      - size: 60 34
+        bkgColor: 0xffa726
+      - size: 60 34
+        bkgColor: 0x66bb6a
+
+  - id: justify-center-end
+    height: 46
+    innerDirection: row
+    innerGap: 10
+    inner:
+      - width: 320
+        height: 46
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 6
+        innerDirection: row
+        justify: center
+        innerGap: 6
+        inner:
+          - size: 50 34
+            bkgColor: 0x26a69a
+          - size: 50 34
+            bkgColor: 0x26a69a
+      - width: 320
+        height: 46
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 6
+        innerDirection: row
+        justify: end
+        innerGap: 6
+        inner:
+          - size: 50 34
+            bkgColor: 0xab47bc
+          - size: 50 34
+            bkgColor: 0xab47bc
+
+  # ---- column direction + innerColumnAlign + column justify ----
+  - id: column-align
+    height: 120
+    innerDirection: row
+    innerGap: 10
+    inner:
+      - width: 150
+        height: 120
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: column
+        innerColumnAlign: left
+        innerGap: 6
+        inner:
+          - size: 70 24
+            bkgColor: 0x8d6e63
+          - size: 50 24
+            bkgColor: 0x8d6e63
+          - size: 90 24
+            bkgColor: 0x8d6e63
+      - width: 150
+        height: 120
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: column
+        innerColumnAlign: center
+        innerGap: 6
+        inner:
+          - size: 70 24
+            bkgColor: 0x5c6bc0
+          - size: 50 24
+            bkgColor: 0x5c6bc0
+          - size: 90 24
+            bkgColor: 0x5c6bc0
+      - width: 150
+        height: 120
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: column
+        innerColumnAlign: right
+        innerGap: 6
+        inner:
+          - size: 70 24
+            bkgColor: 0x26a69a
+          - size: 50 24
+            bkgColor: 0x26a69a
+          - size: 90 24
+            bkgColor: 0x26a69a
+      - width: 150
+        height: 120
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: column
+        justify: space-between
+        inner:
+          - size: 60 20
+            bkgColor: 0xffa726
+          - size: 60 20
+            bkgColor: 0xffa726
+          - size: 60 20
+            bkgColor: 0xffa726
+
+  # ---- innerWrap: wrap vs none ----
+  - id: wrapping
+    height: 100
+    innerDirection: row
+    innerGap: 10
+    inner:
+      - width: 300
+        height: 100
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: row
+        innerWrap: wrap
+        innerGap: 6
+        inner:
+          - forEach: 9
+            size: 56 24
+            bkgColor: 0x7e57c2
+      - width: 300
+        height: 100
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 8
+        innerDirection: row
+        innerWrap: none
+        innerGap: 6
+        inner:
+          - forEach: 5
+            size: 56 24
+            bkgColor: 0x455a64
+
+  # ---- borderRadius variants and border types ----
+  - id: radius-border
+    height: 86
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 10
+    innerDirection: row
+    innerGap: 14
+    inner:
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 20
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 24 4
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 4 18 30 10
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 10
+        border: 3 0x4fc3f7 inset
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 10
+        border: 3 0xffd54f center
+      - size: 90 66
+        bkgColor: 0x37474f
+        borderRadius: 10
+        border: 3 0x81c784 outset
+
+  # ---- colour formats, driven by forEach over objects ----
+  - id: colors
+    height: 74
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 10
+    innerDirection: row
+    innerGap: 10
+    inner:
+      - forEach: swatches
+        width: 170
+        height: 54
+        bkgColor: ~ value.color
+        borderRadius: 6
+        justify: center
+        innerDirection: column
+        innerColumnAlign: center
+        inner:
+          - text: ~ value.name
+            color: 0x10101a
+            font: 13 700
+
+  # ---- absolute positioning, offsets, rotation ----
+  - id: absolute
+    height: 150
+    innerDirection: row
+    innerGap: 10
+    inner:
+      - width: 320
+        height: 150
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 10
+        inner:
+          - size: 40 40
+            bkgColor: 0xef5350
+            absolute: left top
+          - size: 40 40
+            bkgColor: 0xffa726
+            absolute: right top
+          - size: 40 40
+            bkgColor: 0x66bb6a
+            absolute: left bottom
+          - size: 40 40
+            bkgColor: 0x42a5f5
+            absolute: right bottom
+          - size: 50 30
+            bkgColor: 0xab47bc
+            absolute: left right
+      - width: 320
+        height: 150
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 10
+        inner:
+          - size: 44 44
+            bkgColor: 0x26c6da
+            absolute: top
+          - size: 44 44
+            bkgColor: 0x26a69a
+            absolute: left/12 bottom/8
+          - size: 60 28
+            bkgColor: 0x8d6e63
+            offset: left/40 top/18
+      - width: 300
+        height: 150
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 10
+        innerDirection: row
+        justify: space-evenly
+        inner:
+          - size: 64 64
+            bkgColor: 0x7e57c2
+            borderRadius: 8
+            rotate: 20
+          - size: 64 64
+            bkgColor: 0xffa726
+            borderRadius: 8
+            rotate: -35
+
+  # ---- images: cover, contain, rounded, rotated ----
+  - id: images
+    height: 150
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 10
+    innerDirection: row
+    innerGap: 12
+    inner:
+      - size: 200 130
+        bkgImage: test_img.jpeg
+        bkgImageSize: cover
+      - size: 200 130
+        bkgImage: test_img.jpeg
+        bkgImageSize: contain
+      - size: 130 130
+        bkgColor: 0x4fc3f7
+        bkgImage: test_img2.png
+        bkgImageSize: cover
+        borderRadius: 65
+      - size: 130 130
+        bkgColor: 0x81c784
+        bkgImage: test_img2.png
+        bkgImageSize: contain
+        borderRadius: 12
+        rotate: 12
+
+  # ---- typography: declared faces, style/weight/size, lineHeight, wrapping ----
+  - id: typography
+    height: 170
+    innerDirection: row
+    innerGap: 12
+    inner:
+      - width: 300
+        height: 170
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 12
+        innerDirection: column
+        innerGap: 4
+        inner:
+          - text: fontFamily Golden
+            fontFamily: Golden
+            fontSize: 16
+          - text: fontStyle italic + weight 700
+            fontFamily: Golden
+            fontStyle: italic
+            fontWeight: 700
+            fontSize: 15
+          - text: font shorthand italic
+            font: Golden 15 italic
+          - text: fontColor override
+            fontColor: 0x81c784
+            fontSize: 15
+          - text: color inherited from root
+            fontSize: 15
+      - width: 340
+        height: 170
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 12
+        innerWrap: wrap
+        lineHeight: 20
+        text: ~ prose
+      - width: 290
+        height: 170
+        bkgColor: 0x2b2b3a
+        borderRadius: 6
+        padding: 12
+        innerDirection: column
+        innerGap: 6
+        inner:
+          - text: lineHeight 12
+            lineHeight: 12
+            fontSize: 11
+          - text: lineHeight 28
+            lineHeight: 28
+            fontSize: 11
+          - text: nested forEach below
+            fontSize: 11
+            fontColor: 0x9e9e9e
+
+  # ---- nested forEach with value / index / parent ----
+  # `value` and `parent` resolve on descendants of the repeated node, but
+  # `index` is only the loop counter on the node carrying forEach itself, so the
+  # counters below sit directly on the repeated cells.
+  - id: foreach
+    width: 100%
+    bkgColor: 0x2b2b3a
+    borderRadius: 6
+    padding: 10
+    innerDirection: column
+    innerGap: 8
+    inner:
+      - forEach: groups
+        innerDirection: row
+        innerGap: 8
+        height: 30
+        inner:
+          - width: 150
+            height: 30
+            bkgColor: 0x455a64
+            borderRadius: 4
+            padding: 8 10
+            text: ~ value.label
+            fontSize: 12
+          - forEach: items
+            width: 78
+            height: 30
+            bkgColor: 0x5c6bc0
+            borderRadius: 4
+            padding: 8 8
+            text: '~ string(index) + ":" + string(value)'
+            fontSize: 12
+
+      # numeric forEach: repeats N times with value and index both the counter
+      - innerDirection: row
+        innerGap: 8
+        height: 30
+        inner:
+          - width: 150
+            height: 30
+            bkgColor: 0x455a64
+            borderRadius: 4
+            padding: 8 10
+            text: numeric forEach
+            fontSize: 12
+          - forEach: 4
+            width: 78
+            height: 30
+            bkgColor: 0x26a69a
+            borderRadius: 4
+            padding: 8 8
+            text: '~ "n=" + string(index)'
+            fontSize: 12
