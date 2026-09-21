@@ -193,7 +193,6 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64, faces
 
 	offset := fonts.GetFontFaceBaseLineOffset(face, n.Size.H)
 	pt := fixed.P(int(left), int(top+offset))
-	ptY := pt.Y
 
 	// Go's color model is alpha-premultiplied, and draw.DrawMask composites
 	// the source as such. A translucent font color left unpremultiplied has
@@ -204,14 +203,6 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64, faces
 
 	for _, r := range n.Text {
 		r = utils.SimplifyRune(r)
-
-		// Since there is no sophisticated font rasterizer as harfbuzz
-		// we have some issues with rendering some runes, like colons
-		if r == ':' || r == ';' {
-			pt.Y = ptY - fixed.I(int(3.0*n.Props.FontDescription.Size/44))
-		} else {
-			pt.Y = ptY
-		}
 
 		// Better to skip unknown symbol
 		dr, mask, maskPoint, advance, ok := face.Glyph(pt, r)

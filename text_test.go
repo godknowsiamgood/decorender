@@ -111,3 +111,78 @@ inner:
 		}
 	}
 }
+
+// lowestInkRow reports the bottom-most row within a column range that carries
+// any ink, which for baseline-resting glyphs is the baseline itself.
+func lowestInkRow(img *image.RGBA, minX, maxX, minY, maxY int, background color.RGBA) int {
+	lowest := -1
+
+	bounds := img.Bounds()
+	for y := minY; y < maxY && y < bounds.Max.Y; y++ {
+		for x := minX; x < maxX && x < bounds.Max.X; x++ {
+			c := img.RGBAAt(x, y)
+			if c != background {
+				lowest = y
+				break
+			}
+		}
+	}
+
+	return lowest
+}
+
+// TestColonSitsOnTheBaseline draws a colon and a full stop, which rest on the
+// baseline together in every normal font, and checks that the renderer puts
+// them there together.
+//
+// Colons used to be lifted off the baseline by a hand-tuned fraction of the
+// font size, attributed to the lack of a shaping engine. Vertical placement is
+// not a shaping concern, and the shift only moved a correct glyph out of place.
+func TestColonSitsOnTheBaseline(t *testing.T) {
+	// A size large enough that the old shift (3*size/44, rounded down) was
+	// several pixels rather than none.
+	const template = `
+width: 300
+height: 140
+bkgColor: white
+color: black
+padding: 20
+inner:
+  - text: ".:."
+    font: Roboto 88 400
+`
+
+	img, release := renderTemplate(t, template)
+	defer release()
+
+	white := color.RGBA{255, 255, 255, 255}
+
+	// ".:." is three glyphs of roughly equal advance, so thirds of the inked
+	// width separate them well enough to measure each one alone.
+	inkStart, inkEnd := -1, -1
+	for x := 0; x < img.Bounds().Max.X; x++ {
+		if lowestInkRow(img, x, x+1, 0, img.Bounds().Max.Y, white) >= 0 {
+			if inkStart < 0 {
+				inkStart = x
+			}
+			inkEnd = x
+		}
+	}
+	if inkStart < 0 {
+		t.Fatal("nothing was drawn")
+	}
+
+	third := (inkEnd + 1 - inkStart) / 3
+	stop := lowestInkRow(img, inkStart, inkStart+third, 0, img.Bounds().Max.Y, white)
+	colon := lowestInkRow(img, inkStart+third, inkStart+2*third, 0, img.Bounds().Max.Y, white)
+
+	if stop < 0 || colon < 0 {
+		t.Fatalf("could not find both glyphs: full stop bottom %d, colon bottom %d", stop, colon)
+	}
+
+	// Both glyphs end on the baseline, so their lowest inked rows coincide.
+	// One row of slack covers antialiasing at the very edge.
+	if abs(colon-stop) > 1 {
+		t.Errorf("colon bottom is row %d and full stop bottom is row %d; they should share the baseline", colon, stop)
+	}
+}
