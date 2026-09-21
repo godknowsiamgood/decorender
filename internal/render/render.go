@@ -195,7 +195,11 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64, faces
 	pt := fixed.P(int(left), int(top+offset))
 	ptY := pt.Y
 
-	colorUniform := getUniform(n.Props.FontColor)
+	// Go's color model is alpha-premultiplied, and draw.DrawMask composites
+	// the source as such. A translucent font color left unpremultiplied has
+	// channels above its own alpha, which the Over fast path renders as
+	// near-black rather than as translucent text.
+	colorUniform := getUniform(alphaPremultiply(n.Props.FontColor))
 	defer uniformPool.Put(colorUniform)
 
 	for _, r := range n.Text {
