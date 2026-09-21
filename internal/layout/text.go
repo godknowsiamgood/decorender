@@ -24,7 +24,7 @@ type textToken struct {
 	joinsNext bool
 }
 
-func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) float64 {
+func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) (float64, error) {
 	tokens := splitText(text)
 
 	var height float64
@@ -37,9 +37,14 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 	for i := len(tokens) - 1; i >= 0; i-- {
 		t := tokens[i]
 
+		width, err := context.faces.MeasureTextWidth(t.text, context.props.FontDescription)
+		if err != nil {
+			return 0, err
+		}
+
 		node := Node{
 			Size: utils.Size{
-				W: context.faces.MeasureTextWidth(t.text, context.props.FontDescription),
+				W: width,
 				H: height,
 			},
 			Props: CalculatedProperties{

@@ -130,7 +130,10 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 		// all children in slice are in reverse order.
 
 		if text != "" {
-			textWhitespaceWidth = spitTextToNodes(nodes, text, newContext)
+			textWhitespaceWidth, err = spitTextToNodes(nodes, text, newContext)
+			if err != nil {
+				return fmt.Errorf("%s: %w", nodeRef(pn), err)
+			}
 		} else {
 			for i := len(pn.Inner) - 1; i >= 0; i-- {
 				if err = doLayoutNode(pn.Inner[i], nodes, newContext, currentValue, iteratorValue, currentValueIndex); err != nil {

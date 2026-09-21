@@ -301,10 +301,16 @@ func (fs *FaceSet) Face(fd FaceDescription) (font.Face, error) {
 	return face, nil
 }
 
-func (fs *FaceSet) MeasureTextWidth(text string, fd FaceDescription) float64 {
+// MeasureTextWidth reports how wide text is in the given face.
+//
+// The error is worth propagating rather than measuring as zero: a font that
+// cannot be resolved makes every string zero-width, which collapses a
+// content-sized layout to nothing and is reported as there being nothing to
+// render, with no mention of the font.
+func (fs *FaceSet) MeasureTextWidth(text string, fd FaceDescription) (float64, error) {
 	face, err := fs.Face(fd)
 	if err != nil {
-		return 0.0
+		return 0, err
 	}
 
 	var width float64
@@ -313,7 +319,7 @@ func (fs *FaceSet) MeasureTextWidth(text string, fd FaceDescription) float64 {
 		width += float64(advance)
 	}
 
-	return width / 64 // Convert from 26.6 fixed-point to float64
+	return width / 64, nil // Convert from 26.6 fixed-point to float64
 }
 
 func GetFontFaceBaseLineOffset(face font.Face, lineHeight float64) float64 {

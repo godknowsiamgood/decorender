@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -264,5 +265,52 @@ func TestTrailingJoinIsNotChargedAWhitespace(t *testing.T) {
 		if got < bare {
 			t.Errorf("%q measures %dpx, narrower than %q at %dpx", c.withJoin, got, c.without, bare)
 		}
+	}
+}
+
+// TestMissingFontFaceIsReported checks that a layout naming a font it never
+// declared says so.
+//
+// Measuring used to report zero width for a font it could not resolve. Every
+// word then measured as nothing, a content-sized layout collapsed to nothing,
+// and the render failed with NothingToRenderErr without mentioning the font.
+// The real message appeared only when some unrelated sibling happened to carry
+// an explicit size, which kept the layout large enough to reach the point
+// where drawing reports the same failure.
+func TestMissingFontFaceIsReported(t *testing.T) {
+	templates := map[string]string{
+		"text alone": `
+bkgColor: white
+inner:
+  - text: hello world
+    font: Nope 20 400
+`,
+		"text beside a sized box": `
+bkgColor: white
+inner:
+  - size: 50 50
+    bkgColor: red
+  - text: hello world
+    font: Nope 20 400
+`,
+	}
+
+	for name, template := range templates {
+		t.Run(name, func(t *testing.T) {
+			r, err := NewRendererWithTemplate([]byte(template), &Options{LocalFiles: os.DirFS(".")})
+			if err != nil {
+				t.Fatalf("parsing template: %v", err)
+			}
+
+			_, release, err := r.Render(nil, nil)
+			if err == nil {
+				release()
+				t.Fatal("rendering with an undeclared font face succeeded, want an error naming the face")
+			}
+
+			if !strings.Contains(err.Error(), "Nope") {
+				t.Errorf("error is %q, want it to name the missing face Nope", err)
+			}
+		})
 	}
 }

@@ -225,7 +225,10 @@ func TestMeasurementIsAdditive(t *testing.T) {
 	defer registry.ReleaseFaceSet(faces)
 
 	description := FaceDescription{Family: DefaultFamily, Size: 16, Weight: 400}
-	space := faces.MeasureTextWidth(" ", description)
+	space, err := faces.MeasureTextWidth(" ", description)
+	if err != nil {
+		t.Fatalf("measuring a space: %v", err)
+	}
 
 	for _, line := range []string{
 		"the quick brown fox jumps over",
@@ -236,11 +239,19 @@ func TestMeasurementIsAdditive(t *testing.T) {
 
 		var summed float64
 		for _, w := range words {
-			summed += faces.MeasureTextWidth(w, description)
+			width, err := faces.MeasureTextWidth(w, description)
+			if err != nil {
+				t.Fatalf("measuring %q: %v", w, err)
+			}
+			summed += width
 		}
 		summed += float64(len(words)-1) * space
 
-		if joined := faces.MeasureTextWidth(line, description); summed != joined {
+		joined, err := faces.MeasureTextWidth(line, description)
+		if err != nil {
+			t.Fatalf("measuring %q: %v", line, err)
+		}
+		if summed != joined {
 			t.Errorf("%q: the words add up to %v but the line measures %v", line, summed, joined)
 		}
 	}
