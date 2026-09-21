@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
+	"image"
 )
 
 const testFontFile = "default.ttf"
@@ -254,5 +256,121 @@ func TestMeasurementIsAdditive(t *testing.T) {
 		if summed != joined {
 			t.Errorf("%q: the words add up to %v but the line measures %v", line, summed, joined)
 		}
+	}
+}
+
+// TestAdvancesAreWholePixels pins the property that lets a rasterized glyph be
+// kept and redrawn: hinted faces advance the pen by whole pixels, so a pen
+// starting on a pixel never lands between two, and a glyph's mask does not
+// depend on where it is drawn.
+//
+// Dropping to font.HintingNone would break this - advances become fractional
+// and a glyph has to be rasterized for its sub-pixel position - so the face
+// options and this test have to change together.
+func TestAdvancesAreWholePixels(t *testing.T) {
+	registry, err := NewRegistry(nil, os.DirFS("."))
+	if err != nil {
+		t.Fatalf("building registry: %v", err)
+	}
+
+	faces := registry.AcquireFaceSet()
+	defer registry.ReleaseFaceSet(faces)
+
+	for _, size := range []float64{9, 13, 16, 23.5, 44, 88} {
+		face, err := faces.Face(FaceDescription{Family: DefaultFamily, Size: size, Weight: 400})
+		if err != nil {
+			t.Fatalf("realizing a face at size %v: %v", size, err)
+		}
+
+		for r := rune(' '); r < 127; r++ {
+			advance, ok := face.GlyphAdvance(r)
+			if ok && advance%64 != 0 {
+				t.Fatalf("at size %v, %q advances %v, which is not a whole pixel", size, r, advance)
+			}
+		}
+	}
+}
+
+// TestCachedGlyphMatchesAFreshOne draws every printable ASCII character from
+// the cache and from a face that has never seen it, and compares the masks.
+func TestCachedGlyphMatchesAFreshOne(t *testing.T) {
+	registry, err := NewRegistry(nil, os.DirFS("."))
+	if err != nil {
+		t.Fatalf("building registry: %v", err)
+	}
+
+	faces := registry.AcquireFaceSet()
+	defer registry.ReleaseFaceSet(faces)
+
+	description := FaceDescription{Family: DefaultFamily, Size: 24, Weight: 400}
+
+	for r := rune(' '); r < 127; r++ {
+		cached, err := faces.Glyph(description, r)
+		if err != nil {
+			t.Fatalf("caching %q: %v", r, err)
+		}
+
+		// A face of its own, so the comparison is against a rasterization that
+		// no cache took part in.
+		fresh := registry.AcquireFaceSet()
+		face, err := fresh.Face(description)
+		if err != nil {
+			t.Fatalf("realizing a face: %v", err)
+		}
+		bounds, mask, maskPoint, advance, ok := face.Glyph(fixed.P(0, 0), r)
+		registry.ReleaseFaceSet(fresh)
+
+		if ok != cached.Found {
+			t.Errorf("%q: cache says found=%v, a fresh face says %v", r, cached.Found, ok)
+			continue
+		}
+		if !ok {
+			continue
+		}
+		if advance != cached.Advance {
+			t.Errorf("%q: cached advance %v, fresh advance %v", r, cached.Advance, advance)
+		}
+		if bounds.Min != cached.Offset {
+			t.Errorf("%q: cached offset %v, fresh offset %v", r, cached.Offset, bounds.Min)
+		}
+
+		for y := 0; y < bounds.Dy(); y++ {
+			for x := 0; x < bounds.Dx(); x++ {
+				want := mask.(*image.Alpha).AlphaAt(maskPoint.X+x, maskPoint.Y+y)
+				if got := cached.Mask.AlphaAt(x, y); got != want {
+					t.Fatalf("%q: cached mask differs at (%d,%d): %v, want %v", r, x, y, got, want)
+				}
+			}
+		}
+	}
+}
+
+// TestGlyphCacheStaysWithinItsMemoryBudget rasterizes far more glyph than the
+// budget allows and checks that the cache gives memory back as it evicts.
+func TestGlyphCacheStaysWithinItsMemoryBudget(t *testing.T) {
+	registry, err := NewRegistry(nil, os.DirFS("."))
+	if err != nil {
+		t.Fatalf("building registry: %v", err)
+	}
+
+	faces := registry.AcquireFaceSet()
+	defer registry.ReleaseFaceSet(faces)
+
+	// Large glyphs at many sizes, which is the shape that grows the cache
+	// fastest: one size's alphabet alone is a sizeable fraction of the budget.
+	for size := 200; size < 260; size++ {
+		description := FaceDescription{Family: DefaultFamily, Size: float64(size), Weight: 400}
+		for r := rune('A'); r <= 'Z'; r++ {
+			if _, err := faces.Glyph(description, r); err != nil {
+				t.Fatalf("caching %q at size %d: %v", r, size, err)
+			}
+		}
+	}
+
+	if faces.glyphBytes > maxCachedGlyphBytes {
+		t.Errorf("cached masks occupy %d bytes, over the %d byte budget", faces.glyphBytes, maxCachedGlyphBytes)
+	}
+	if faces.glyphBytes <= 0 {
+		t.Errorf("cached masks occupy %d bytes, so the accounting has drifted", faces.glyphBytes)
 	}
 }

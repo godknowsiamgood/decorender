@@ -202,14 +202,22 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64, faces
 	defer uniformPool.Put(colorUniform)
 
 	for _, r := range n.Text {
+		g, err := faces.Glyph(n.Props.FontDescription, r)
+		if err != nil {
+			return fmt.Errorf("cant draw node text (id: %v): %w", n.Id, err)
+		}
+
 		// Better to skip unknown symbol
-		dr, mask, maskPoint, advance, ok := face.Glyph(pt, r)
-		if !ok {
+		if !g.Found {
 			continue
 		}
 
-		draw.DrawMask(dst, dr.Bounds(), colorUniform, image.Point{}, mask, maskPoint, draw.Over)
-		pt.X += advance
+		x, y := pt.X.Floor()+g.Offset.X, pt.Y.Floor()+g.Offset.Y
+		draw.DrawMask(dst,
+			image.Rect(x, y, x+g.Mask.Rect.Dx(), y+g.Mask.Rect.Dy()),
+			colorUniform, image.Point{}, g.Mask, image.Point{}, draw.Over)
+
+		pt.X += g.Advance
 	}
 
 	return nil

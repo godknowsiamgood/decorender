@@ -11,8 +11,12 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/math/fixed"
+	"image"
+	"image/draw"
 )
 
 //go:embed default.ttf
@@ -23,6 +27,15 @@ const DefaultFamily = "Roboto"
 // maxCachedFaces caps how many realized faces a single FaceSet keeps.
 // Layouts with expression-driven font sizes can otherwise grow it without bound.
 const maxCachedFaces = 64
+
+// Rasterized glyphs are capped by count and by the memory their masks occupy,
+// since a glyph's mask grows with the square of the font size: a thousand
+// glyphs are a few hundred kilobytes at body sizes and many megabytes at
+// display sizes.
+const (
+	maxCachedGlyphs     = 4096
+	maxCachedGlyphBytes = 1 << 20
+)
 
 // FaceTemplate describes a font face to load, as declared in a layout.
 type FaceTemplate struct {
@@ -73,10 +86,7 @@ func NewRegistry(templates []FaceTemplate, fsys fs.FS) (*Registry, error) {
 		defaultFont: defaultFont,
 	}
 	r.pool.New = func() any {
-		return &FaceSet{
-			reg:   r,
-			faces: make(map[FaceDescription]font.Face, 8),
-		}
+		return newFaceSet(r)
 	}
 
 	for _, t := range templates {
@@ -260,25 +270,67 @@ func (r *Registry) ReleaseFaceSet(fs *FaceSet) {
 	if fs == nil {
 		return
 	}
-	if len(fs.faces) > maxCachedFaces {
-		clear(fs.faces)
-	}
 	r.pool.Put(fs)
 }
 
-// FaceSet caches realized font.Face values for a single render.
+// Glyph is one rasterized glyph, held relative to the pen it is drawn at.
+//
+// Keeping a mask across draws is only sound because faces are hinted: with
+// font.HintingFull every advance is a whole number of pixels, so a pen that
+// starts on a pixel stays on one and a glyph looks the same wherever it lands.
+// TestAdvancesAreWholePixels pins that.
+type Glyph struct {
+	Mask    *image.Alpha
+	Offset  image.Point
+	Advance fixed.Int26_6
+	// Found is false for a rune the font has no glyph for, which is worth
+	// remembering so it is not looked up again.
+	Found bool
+}
+
+type glyphKey struct {
+	face FaceDescription
+	rune rune
+}
+
+// FaceSet caches realized font.Face values and the glyphs rasterized from
+// them.
 //
 // It is NOT safe for concurrent use: font.Face reuses an internal glyph mask
 // buffer, so a face handed to two goroutines corrupts both. Acquire one set per
 // render via Registry.AcquireFaceSet.
 type FaceSet struct {
-	reg   *Registry
-	faces map[FaceDescription]font.Face
+	reg    *Registry
+	faces  *simplelru.LRU[FaceDescription, font.Face]
+	glyphs *simplelru.LRU[glyphKey, Glyph]
+	// glyphBytes is the memory the cached masks occupy, kept in step with
+	// glyphs by the eviction callback.
+	glyphBytes int
+}
+
+func newFaceSet(r *Registry) *FaceSet {
+	fs := &FaceSet{reg: r}
+
+	// simplelru is the unsynchronized variant, which is what a set owned by
+	// one goroutine wants. Neither constructor can fail for a positive size.
+	fs.faces, _ = simplelru.NewLRU[FaceDescription, font.Face](maxCachedFaces, nil)
+	fs.glyphs, _ = simplelru.NewLRU[glyphKey, Glyph](maxCachedGlyphs, func(_ glyphKey, g Glyph) {
+		fs.glyphBytes -= glyphSize(g)
+	})
+
+	return fs
+}
+
+func glyphSize(g Glyph) int {
+	if g.Mask == nil {
+		return 0
+	}
+	return len(g.Mask.Pix)
 }
 
 // Face returns the realized face for fd, creating it on first use.
 func (fs *FaceSet) Face(fd FaceDescription) (font.Face, error) {
-	if face, ok := fs.faces[fd]; ok {
+	if face, ok := fs.faces.Get(fd); ok {
 		return face, nil
 	}
 
@@ -296,9 +348,58 @@ func (fs *FaceSet) Face(fd FaceDescription) (font.Face, error) {
 		return nil, fmt.Errorf("can't create face for %v: %w", fd.Family, err)
 	}
 
-	fs.faces[fd] = face
+	fs.faces.Add(fd, face)
 
 	return face, nil
+}
+
+// Glyph returns r rasterized in the given face, drawing it once and keeping
+// the mask.
+//
+// golang.org/x/image rasterizes on every call to font.Face.Glyph, which makes
+// drawing the same letter twice cost the same as drawing it the first time.
+// Rasterizing dominates rendering - two thirds of the time in a text-heavy
+// layout - and a page repeats its alphabet many times over.
+func (fs *FaceSet) Glyph(fd FaceDescription, r rune) (Glyph, error) {
+	key := glyphKey{face: fd, rune: r}
+	if g, ok := fs.glyphs.Get(key); ok {
+		return g, nil
+	}
+
+	face, err := fs.Face(fd)
+	if err != nil {
+		return Glyph{}, err
+	}
+
+	// Rasterized at the origin, so the mask can be drawn at any pen.
+	bounds, mask, maskPoint, advance, ok := face.Glyph(fixed.P(0, 0), r)
+
+	g := Glyph{Advance: advance, Found: ok}
+	if ok {
+		// face.Glyph hands back a view of the face's own buffer, which the
+		// next glyph overwrites, so the mask is copied out.
+		alpha, isAlpha := mask.(*image.Alpha)
+		if !isAlpha {
+			return Glyph{}, fmt.Errorf("font face for %v returned a %T mask, want *image.Alpha", fd.Family, mask)
+		}
+
+		kept := image.NewAlpha(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
+		draw.Draw(kept, kept.Bounds(), alpha, maskPoint, draw.Src)
+
+		g.Mask = kept
+		g.Offset = bounds.Min
+	}
+
+	fs.glyphs.Add(key, g)
+	fs.glyphBytes += glyphSize(g)
+
+	for fs.glyphBytes > maxCachedGlyphBytes {
+		if _, _, evicted := fs.glyphs.RemoveOldest(); !evicted {
+			break
+		}
+	}
+
+	return g, nil
 }
 
 // MeasureTextWidth reports how wide text is in the given face.

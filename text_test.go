@@ -314,3 +314,48 @@ inner:
 		})
 	}
 }
+
+// BenchmarkTextRender exercises a page of wrapped body text.
+//
+// The golden benchmark spends most of its time scaling images, so it barely
+// moves when text rendering changes; this one is almost entirely text.
+func BenchmarkTextRender(b *testing.B) {
+	const template = `
+width: 800
+bkgColor: white
+color: 0x222222
+font: Roboto 16 400
+padding: 20
+inner:
+  - innerDirection: row
+    innerWrap: wrap
+    text: ~ text
+`
+
+	r, err := NewRendererWithTemplate([]byte(template), &Options{LocalFiles: os.DirFS(".")})
+	if err != nil {
+		b.Fatalf("parsing template: %v", err)
+	}
+
+	words := strings.Fields("the quick brown fox jumps over a lazy dog while " +
+		"typographic waves of Avast Wonder Yearn Toward Various Anchored " +
+		"Layouts keep flowing onward")
+
+	var sb strings.Builder
+	for i := 0; i < 40; i++ {
+		sb.WriteString(words[i%len(words)])
+		sb.WriteByte(' ')
+	}
+	data := map[string]any{"text": sb.String()}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, release, err := r.Render(data, nil)
+		if err != nil {
+			b.Fatalf("rendering: %v", err)
+		}
+		release()
+	}
+}
