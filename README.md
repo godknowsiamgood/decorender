@@ -174,8 +174,9 @@ bkgImageSize: cover   # - cover (default) or contain.
 
 # Text
 
-text: Hello           # - Text, wrapped if needed. Hyphens are break opportunities, and
-                      #   &nbsp; holds a pair of words together.
+text: Hello           # - Text, wrapped if needed. Hyphens and zero-width spaces are
+                      #   break opportunities, and &nbsp; holds a pair of words
+                      #   together.
 color: black          # - Color of text. Inherited by all children.
 fontColor: black      # - Alias of color. When both are given, color wins.
 font: Inter 23 400    # - Family, size, weight and italic/normal, in any order and all
