@@ -207,3 +207,41 @@ func TestVariableFontRefusesAWeightItCannotRender(t *testing.T) {
 		t.Errorf("the default weight was refused: %v", err)
 	}
 }
+
+// TestMeasurementIsAdditive pins the property that lets the layout add up a
+// row of measured words instead of measuring the joined line a second time:
+// widths are a plain sum of glyph advances, with nothing between one glyph and
+// the next.
+//
+// Introducing kerning would break this, and the layout would have to measure
+// joined rows again rather than adding their parts.
+func TestMeasurementIsAdditive(t *testing.T) {
+	registry, err := NewRegistry(nil, os.DirFS("."))
+	if err != nil {
+		t.Fatalf("building registry: %v", err)
+	}
+
+	faces := registry.AcquireFaceSet()
+	defer registry.ReleaseFaceSet(faces)
+
+	description := FaceDescription{Family: DefaultFamily, Size: 16, Weight: 400}
+	space := faces.MeasureTextWidth(" ", description)
+
+	for _, line := range []string{
+		"the quick brown fox jumps over",
+		"AVATAR To Wave Yearn",
+		"Ünïcödé wörds hëre",
+	} {
+		words := strings.Fields(line)
+
+		var summed float64
+		for _, w := range words {
+			summed += faces.MeasureTextWidth(w, description)
+		}
+		summed += float64(len(words)-1) * space
+
+		if joined := faces.MeasureTextWidth(line, description); summed != joined {
+			t.Errorf("%q: the words add up to %v but the line measures %v", line, summed, joined)
+		}
+	}
+}

@@ -188,7 +188,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 				})
 
 				if text != "" {
-					mergeTextNodes(nodes, childrenNodesLevel, from, newContext.faces)
+					mergeTextNodes(nodes, childrenNodesLevel, from, textWhitespaceWidth)
 				}
 			} else {
 				i := 0

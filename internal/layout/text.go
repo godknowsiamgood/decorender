@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"github.com/godknowsiamgood/decorender/internal/fonts"
 	"github.com/godknowsiamgood/decorender/internal/utils"
 	"golang.org/x/text/unicode/norm"
 	"strings"
@@ -98,19 +97,26 @@ func splitText(input string) []textToken {
 }
 
 // Little tricky method to merge texts nodes in rows into one node per row for optimized rendering
-func mergeTextNodes(nodes *Nodes, level int, from int, faces *fonts.FaceSet) {
+//
+// The merged row is as wide as its parts plus the whitespace between them.
+// Nothing here kerns, so that sum is exactly what measuring the joined string
+// would return, and the row is added up rather than measured a second time.
+func mergeTextNodes(nodes *Nodes, level int, from int, whitespaceWidth float64) {
 	var sb strings.Builder
 
 	originalFrom := from
 	index := 0
 	nodes.IterateRowsReverse(level, from, func(rowIndex int) {
 		sb.Reset()
+		var width float64
 		var last *Node
 		nodes.IterateRow(level, from, rowIndex, func(n *Node) {
 			if last != nil && !last.JoinsNextToken {
 				sb.WriteString(" ")
+				width += whitespaceWidth
 			}
 			sb.WriteString(n.Text)
+			width += n.Size.W
 			last = n
 			from++
 		})
@@ -118,7 +124,7 @@ func mergeTextNodes(nodes *Nodes, level int, from int, faces *fonts.FaceSet) {
 			return
 		}
 		last.Text = sb.String()
-		last.Size.W = faces.MeasureTextWidth(last.Text, last.Props.FontDescription)
+		last.Size.W = width
 		last.InRowIndex = 0
 
 		(*nodes)[originalFrom+index] = *last
