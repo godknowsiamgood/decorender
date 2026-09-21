@@ -186,3 +186,83 @@ inner:
 		t.Errorf("colon bottom is row %d and full stop bottom is row %d; they should share the baseline", colon, stop)
 	}
 }
+
+// textNodeWidth renders one unwrapped line of text and reports the width the
+// layout gave it.
+func textNodeWidth(t testing.TB, text string) int {
+	t.Helper()
+
+	template := "bkgColor: white\ncolor: black\npadding: 0\ninner:\n" +
+		"  - innerDirection: row\n    innerWrap: none\n    font: Roboto 40 400\n" +
+		"    text: \"" + text + "\"\n"
+
+	img, release := renderTemplate(t, template)
+	defer release()
+
+	return img.Bounds().Dx()
+}
+
+// TestZeroWidthBreakTakesNoWidth checks that a zero-width space is what its
+// name says: a place the line may break, drawn as nothing.
+//
+// It used to be rewritten to an ordinary space when drawing but measured as
+// the original rune, so the text was laid out at one width and painted at
+// another.
+func TestZeroWidthBreakTakesNoWidth(t *testing.T) {
+	plain := textNodeWidth(t, "abcd")
+
+	for _, r := range []struct{ name, text string }{
+		{"zero width space", "ab​cd"},
+		{"mongolian vowel separator", "ab᠎cd"},
+	} {
+		if got := textNodeWidth(t, r.text); got != plain {
+			t.Errorf("%s: text measures %dpx, want %dpx - the same as %q without it",
+				r.name, got, plain, "abcd")
+		}
+	}
+
+	// It is still a break opportunity: given room for only one half, the text
+	// wraps there and the node is no wider than the wider half.
+	const wrapping = `
+width: 60
+bkgColor: white
+color: black
+padding: 0
+inner:
+  - innerDirection: row
+    innerWrap: wrap
+    font: Roboto 40 400
+    text: "ab` + "​" + `cd"
+`
+	img, release := renderTemplate(t, wrapping)
+	defer release()
+
+	if h := img.Bounds().Dy(); h < 80 {
+		t.Errorf("text is %dpx tall, want two lines of 48px - it did not break at the zero-width space", h)
+	}
+}
+
+// TestTrailingJoinIsNotChargedAWhitespace renders a line ending in a hyphen.
+// Whitespace falls between tokens, so the last one on a line is followed by
+// none, whether or not it is the kind of token the next one joins.
+//
+// The row width used to subtract a whitespace for every joining token in the
+// row, including the last, leaving such a line one space too narrow for the
+// text actually drawn into it.
+func TestTrailingJoinIsNotChargedAWhitespace(t *testing.T) {
+	for _, c := range []struct{ withJoin, without string }{
+		{"abc-", "abc"},
+		{"a b-", "a b"},
+		{"ab​", "ab"},
+	} {
+		got := textNodeWidth(t, c.withJoin)
+		bare := textNodeWidth(t, c.without)
+
+		// A trailing hyphen adds its own advance; a trailing zero-width break
+		// adds nothing. Neither may make the line narrower than the text
+		// without it.
+		if got < bare {
+			t.Errorf("%q measures %dpx, narrower than %q at %dpx", c.withJoin, got, c.without, bare)
+		}
+	}
+}

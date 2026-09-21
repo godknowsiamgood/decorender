@@ -9,7 +9,21 @@ import (
 )
 
 const hyphen = '-'
-const hyphenString = string(hyphen)
+
+// Zero-width break characters mark a place a word may be split without
+// showing anything at the break. They are dropped from the text and leave a
+// joining token behind, the same shape a hyphen leaves minus the hyphen.
+const (
+	zeroWidthSpace          = '\u200B'
+	mongolianVowelSeparator = '\u180E'
+)
+
+// textToken is one run of text that cannot be broken further, along with
+// whether the token after it follows immediately rather than after a space.
+type textToken struct {
+	text      string
+	joinsNext bool
+}
 
 func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) float64 {
 	tokens := splitText(text)
@@ -26,7 +40,7 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 
 		node := Node{
 			Size: utils.Size{
-				W: context.faces.MeasureTextWidth(t, context.props.FontDescription),
+				W: context.faces.MeasureTextWidth(t.text, context.props.FontDescription),
 				H: height,
 			},
 			Props: CalculatedProperties{
@@ -34,9 +48,9 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 				FontDescription: context.props.FontDescription,
 				LineHeight:      context.props.LineHeight,
 			},
-			Text:               t,
-			TextHasHyphenAtEnd: strings.HasSuffix(t, hyphenString),
-			Level:              context.level + 1,
+			Text:           t.text,
+			JoinsNextToken: t.joinsNext,
+			Level:          context.level + 1,
 		}
 
 		*nodes = append(*nodes, node)
@@ -45,8 +59,8 @@ func spitTextToNodes(nodes *Nodes, text string, context layoutPhaseContext) floa
 	return context.faces.MeasureTextWidth(" ", context.props.FontDescription)
 }
 
-func splitText(input string) []string {
-	var result []string
+func splitText(input string) []textToken {
+	var result []textToken
 	var token strings.Builder
 
 	const nonBreakable = '\u00A0'
@@ -54,24 +68,31 @@ func splitText(input string) []string {
 
 	input = norm.NFC.String(input)
 
+	flush := func(joinsNext bool) {
+		if token.Len() == 0 {
+			return
+		}
+		result = append(result, textToken{text: token.String(), joinsNext: joinsNext})
+		token.Reset()
+	}
+
 	for _, r := range input {
-		if unicode.IsSpace(r) && r != nonBreakable || r == '\n' {
-			if token.Len() > 0 {
-				result = append(result, token.String())
-				token.Reset()
-			}
-		} else if r == hyphen {
+		switch {
+		case unicode.IsSpace(r) && r != nonBreakable || r == '\n':
+			flush(false)
+		case r == zeroWidthSpace || r == mongolianVowelSeparator:
+			// A break opportunity that occupies no space and draws nothing,
+			// so the rune itself is dropped rather than measured or rendered.
+			flush(true)
+		case r == hyphen:
 			token.WriteRune(r)
-			result = append(result, token.String())
-			token.Reset()
-		} else {
+			flush(true)
+		default:
 			token.WriteRune(r)
 		}
 	}
 
-	if token.Len() > 0 {
-		result = append(result, token.String())
-	}
+	flush(false)
 
 	return result
 }
@@ -86,7 +107,7 @@ func mergeTextNodes(nodes *Nodes, level int, from int, faces *fonts.FaceSet) {
 		sb.Reset()
 		var last *Node
 		nodes.IterateRow(level, from, rowIndex, func(n *Node) {
-			if last != nil && !last.TextHasHyphenAtEnd {
+			if last != nil && !last.JoinsNextToken {
 				sb.WriteString(" ")
 			}
 			sb.WriteString(n.Text)

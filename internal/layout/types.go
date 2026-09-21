@@ -40,13 +40,16 @@ type CalculatedProperties struct {
 type Node struct {
 	Id string
 
-	Pos                utils.Pos
-	Size               utils.Size
-	Props              CalculatedProperties
-	Text               string
-	Image              string
-	TextHasHyphenAtEnd bool
-	Level              int
+	Pos   utils.Pos
+	Size  utils.Size
+	Props CalculatedProperties
+	Text  string
+	Image string
+	// JoinsNextToken marks a text token that the following token follows
+	// directly, with no whitespace between them: the halves of a hyphenated
+	// word, or of one split at a zero-width break.
+	JoinsNextToken bool
+	Level          int
 
 	RowIndex   int
 	InRowIndex int
@@ -154,20 +157,32 @@ func (nodes Nodes) RowsTotalHeight(level int, from int, gap float64) (height flo
 
 func (nodes Nodes) RowTotalWidth(level int, from int, rowIndex int, textWhitespaceWidth float64, gap float64) (float64, int) {
 	var total float64
+	var whitespace float64
 
-	hyphensCount := 0
+	// Whitespace goes between nodes, so it is counted when the next node
+	// arrives rather than after each one. Counting it per node instead would
+	// charge the row for a space after its last node, which the earlier form
+	// of this did: a row ending in a joining token - a hyphenated fragment, or
+	// one split at a zero-width break - came out a space too narrow.
 	count := 0
+	var previous *Node
 	nodes.IterateRow(level, from, rowIndex, func(cn *Node) {
 		if cn.IsAbsolutePositioned() {
 			return
 		}
 
-		total += cn.Size.W
-		if cn.TextHasHyphenAtEnd {
-			hyphensCount += 1
+		if previous != nil && !previous.JoinsNextToken {
+			whitespace += textWhitespaceWidth
 		}
+
+		total += cn.Size.W
 		count += 1
+		previous = cn
 	})
 
-	return total + textWhitespaceWidth*float64(count-hyphensCount-1) + gap*float64(count-1), count
+	if count == 0 {
+		return 0, 0
+	}
+
+	return total + whitespace + gap*float64(count-1), count
 }

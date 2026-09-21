@@ -202,8 +202,6 @@ func renderText(dst draw.Image, n *layout.Node, left float64, top float64, faces
 	defer uniformPool.Put(colorUniform)
 
 	for _, r := range n.Text {
-		r = utils.SimplifyRune(r)
-
 		// Better to skip unknown symbol
 		dr, mask, maskPoint, advance, ok := face.Glyph(pt, r)
 		if !ok {

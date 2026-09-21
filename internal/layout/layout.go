@@ -167,7 +167,7 @@ func doLayoutNode(pn parsing.Node, nodes *Nodes, context layoutPhaseContext, val
 							currentInRowIndex = 0
 
 							// Maybe we can wrap whole-hyphened word to look it better
-							if prevNodeInRow != nil && prevNodeInRow.TextHasHyphenAtEnd {
+							if prevNodeInRow != nil && prevNodeInRow.JoinsNextToken {
 								wholeWidth := prevNodeInRow.Size.W + node.Size.W
 								if wholeWidth <= newContext.size.W {
 									prevNodeInRow.InRowIndex = 0
@@ -335,10 +335,10 @@ func getJustifyOffsetAndGap(justifyProp string, gapProp float64, totalSize float
 	return offset, gap
 }
 
-// whitespaceAfter is the gap that follows a node on its row. A token ending in
-// a hyphen joins the next one directly, so it contributes no whitespace.
+// whitespaceAfter is the gap that follows a node on its row. A token the next
+// one joins directly contributes no whitespace.
 func whitespaceAfter(n *Node, textWhitespaceWidth float64) float64 {
-	if n.TextHasHyphenAtEnd {
+	if n.JoinsNextToken {
 		return 0
 	}
 	return textWhitespaceWidth
