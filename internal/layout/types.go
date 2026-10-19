@@ -30,7 +30,7 @@ type CalculatedProperties struct {
 	AbsolutePosition       utils.AbsolutePosition
 	InnerRowGap            float64
 	InnerColumnGap         float64
-	Rotation               float64
+	Rotation               float64 `scale:"-"` // degrees, not a length: the layout's scale leaves it as it is
 	BkgImageSize           BkgImageSizeType
 	Border                 utils.Border
 	Offset                 utils.TopRightBottomLeft

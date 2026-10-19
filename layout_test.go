@@ -268,6 +268,31 @@ inner:
 	}
 }
 
+// The layout's scale grows lengths, not angles. Rotation used to be scaled
+// with everything else, so at scale 2 a quarter turn became a half turn and
+// a vertical bar came out lying flat.
+func TestRotationIsNotScaled(t *testing.T) {
+	const layout = `size: 50 50
+scale: 2
+bkgColor: white
+inner:
+  - absolute: left/5 top/23
+    width: 40
+    height: 4
+    bkgColor: 0xff0000
+    rotate: 90
+`
+
+	img := renderLayout(t, layout)
+
+	if r, g, b := rgb(img.At(50, 20)); r != 255 || g != 0 || b != 0 {
+		t.Errorf("above the center: got %v %v %v, want the red of a standing bar", r, g, b)
+	}
+	if r, g, b := rgb(img.At(20, 50)); r != 255 || g != 255 || b != 255 {
+		t.Errorf("left of the center: got %v %v %v, want white around a standing bar", r, g, b)
+	}
+}
+
 // Wrapped rows are spaced by innerGap. They used to advance by whatever gap
 // justify had spread the row with, so a row distributed with space-between
 // pushed the next one down by the free space left on the line.

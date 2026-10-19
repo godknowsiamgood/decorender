@@ -205,6 +205,11 @@ func scaleValue(v reflect.Value, scale float64) {
 		scaleValue(v.Elem(), scale)
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
+			// A field tagged scale:"-" is not a length: an angle stays the
+			// same at any scale.
+			if v.Type().Field(i).Tag.Get("scale") == "-" {
+				continue
+			}
 			scaleValue(v.Field(i), scale)
 		}
 	case reflect.Array, reflect.Slice:
